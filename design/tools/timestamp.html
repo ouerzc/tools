@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>时间戳转换 | DevKit Hub</title>
+  <style>
+    :root {
+      --bg: oklch(98% 0.005 250);
+      --surface: oklch(100% 0 0);
+      --surface-2: oklch(96% 0.007 250);
+      --fg: oklch(22% 0.02 240);
+      --muted: oklch(50% 0.018 240);
+      --border: oklch(90% 0.008 240);
+      --accent: oklch(58% 0.16 145);
+      --accent-2: oklch(62% 0.15 205);
+      --warn: oklch(70% 0.16 72);
+      --danger: oklch(61% 0.17 25);
+      --code-bg: oklch(18% 0.025 250);
+      --code-fg: oklch(92% 0.012 170);
+      --font-display: "Aptos Display", "SF Pro Display", "Segoe UI Variable Display", system-ui, sans-serif;
+      --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { color-scheme: light; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--fg);
+      font: 16px/1.55 var(--font-body);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    a { color: inherit; text-decoration: none; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    a, button, input, select { touch-action: manipulation; }
+    :focus-visible {
+      outline: 2px solid color-mix(in oklch, var(--accent) 68%, white);
+      outline-offset: 3px;
+    }
+
+    .skip-link {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 100;
+      translate: 0 -72px;
+      border-radius: 8px;
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 10px 12px;
+      font: 13px/1 var(--font-mono);
+      transition: translate 0.16s ease;
+    }
+    .skip-link:focus { translate: 0 0; }
+
+    .shell {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 18px 0 40px;
+    }
+    .top {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 22px;
+    }
+    .brand {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      font-weight: 760;
+      font-family: var(--font-display);
+      white-space: nowrap;
+    }
+    .mark {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: var(--accent);
+      color: white;
+      font: 700 15px/1 var(--font-mono);
+    }
+    .back {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 12px;
+      color: var(--muted);
+      background: var(--surface);
+      white-space: nowrap;
+    }
+    h1 {
+      margin: 0;
+      font: 760 clamp(36px, 6vw, 68px)/0.98 var(--font-display);
+      letter-spacing: 0;
+      text-wrap: balance;
+    }
+    .lead {
+      margin: 12px 0 22px;
+      max-width: 700px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 0.86fr 1.14fr;
+      gap: 14px;
+      align-items: start;
+    }
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+    .status {
+      color: var(--muted);
+      font: 13px/1.4 var(--font-mono);
+      white-space: nowrap;
+    }
+    .status.error { color: var(--danger); }
+    .form {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+    label {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    input, select {
+      min-height: 46px;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0 12px;
+      outline: none;
+      color: var(--fg);
+      background: var(--surface);
+      font-family: var(--font-mono);
+    }
+    input:focus, select:focus {
+      border-color: color-mix(in oklch, var(--accent) 55%, var(--border));
+      box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent) 14%, transparent);
+    }
+    .inline-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .actions, .quick-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .btn {
+      min-height: 42px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 0 14px;
+      font-weight: 690;
+      color: var(--fg);
+    }
+    .btn.primary {
+      background: var(--accent);
+      border-color: transparent;
+      color: white;
+    }
+    .btn:hover {
+      border-color: color-mix(in oklch, var(--accent) 48%, var(--border));
+    }
+    .quick {
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+    }
+    .quick-title {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font: 12px/1.2 var(--font-mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .result {
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 132px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .row span:first-child {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .value {
+      font: 14px/1.4 var(--font-mono);
+      overflow-wrap: anywhere;
+    }
+    .copy {
+      min-height: 34px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--fg);
+      padding: 0 10px;
+    }
+    .side-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+    .mini-panel {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .mini-panel h2 {
+      margin: 0;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+      font-size: 15px;
+      line-height: 1.2;
+    }
+    .timezone-list {
+      display: grid;
+      gap: 0;
+    }
+    .tz-row {
+      display: grid;
+      grid-template-columns: 104px 1fr;
+      gap: 10px;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+    }
+    .tz-row:last-child { border-bottom: 0; }
+    .tz-city {
+      color: var(--muted);
+      font: 12px/1.3 var(--font-mono);
+    }
+    .tz-time {
+      font: 13px/1.35 var(--font-mono);
+      overflow-wrap: anywhere;
+    }
+    .notes {
+      padding: 14px;
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .notes strong {
+      color: var(--fg);
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+
+    @media (max-width: 980px) {
+      .grid, .side-grid { grid-template-columns: 1fr; }
+      .shell { width: min(100% - 20px, 760px); }
+    }
+    @media (max-width: 560px) {
+      .top { align-items: flex-start; }
+      .brand span:last-child { display: none; }
+      .inline-fields { grid-template-columns: 1fr; }
+      .row { grid-template-columns: 1fr; }
+      .copy { justify-self: start; }
+      .tz-row { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
+  <div class="shell" id="main-content">
+    <header class="top">
+      <a class="brand" href="../index.html"><span class="mark">{ }</span><span>DevKit Hub</span></a>
+      <a class="back" href="../index.html">返回工具集合</a>
+    </header>
+
+    <h1>时间戳转换</h1>
+    <p class="lead">秒、毫秒、日期和时区互转。常用值可直接复制。</p>
+
+    <section class="grid" aria-label="时间戳转换工具">
+      <div class="panel">
+        <div class="panel-head"><strong>输入</strong><span class="status" id="status">等待输入</span></div>
+        <div class="form">
+          <label>Unix 时间戳
+            <input id="stamp" inputmode="numeric" placeholder="1718006400 或 1718006400000" autocomplete="off" />
+          </label>
+
+          <div class="inline-fields">
+            <label>日期时间
+              <input id="dateInput" type="datetime-local" step="1" />
+            </label>
+            <label>输入时区
+              <select id="inputZone"></select>
+            </label>
+          </div>
+
+          <label>显示时区
+            <select id="displayZone"></select>
+          </label>
+
+          <div class="actions">
+            <button class="btn primary" id="convert" type="button">转换</button>
+            <button class="btn" id="clear" type="button">清空</button>
+          </div>
+
+          <div class="quick">
+            <p class="quick-title">快捷入口</p>
+            <div class="quick-actions">
+              <button class="btn" id="quickNow" type="button">当前时间</button>
+              <button class="btn" id="quickToday" type="button">今天 00:00</button>
+              <button class="btn" id="quickTomorrow" type="button">明天 00:00</button>
+              <button class="btn" id="quickWeek" type="button">一周后</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><strong>转换结果</strong><span class="status" id="zoneStatus">Asia/Shanghai</span></div>
+        <div class="result" id="result">
+          <div class="row"><span>Unix 秒</span><strong class="value" data-key="seconds">未转换</strong><button class="copy" data-copy="seconds">复制</button></div>
+          <div class="row"><span>Unix 毫秒</span><strong class="value" data-key="milliseconds">未转换</strong><button class="copy" data-copy="milliseconds">复制</button></div>
+          <div class="row"><span>显示时区</span><strong class="value" data-key="zoned">未转换</strong><button class="copy" data-copy="zoned">复制</button></div>
+          <div class="row"><span>UTC</span><strong class="value" data-key="utc">未转换</strong><button class="copy" data-copy="utc">复制</button></div>
+          <div class="row"><span>ISO 8601</span><strong class="value" data-key="iso">未转换</strong><button class="copy" data-copy="iso">复制</button></div>
+          <div class="row"><span>相对时间</span><strong class="value" data-key="relative">未转换</strong><button class="copy" data-copy="relative">复制</button></div>
+          <div class="row"><span>星期</span><strong class="value" data-key="weekday">未转换</strong><button class="copy" data-copy="weekday">复制</button></div>
+          <div class="row"><span>周数</span><strong class="value" data-key="week">未转换</strong><button class="copy" data-copy="week">复制</button></div>
+          <div class="row"><span>年内第几天</span><strong class="value" data-key="dayOfYear">未转换</strong><button class="copy" data-copy="dayOfYear">复制</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="side-grid" aria-label="额外时间功能">
+      <div class="mini-panel">
+        <h2>时区对照</h2>
+        <div class="timezone-list" id="timezoneCompare">
+          <div class="tz-row" data-city="Asia/Shanghai"><span class="tz-city">上海</span><strong class="tz-time">未转换</strong></div>
+          <div class="tz-row" data-city="UTC"><span class="tz-city">UTC</span><strong class="tz-time">未转换</strong></div>
+          <div class="tz-row" data-city="America/Los_Angeles"><span class="tz-city">洛杉矶</span><strong class="tz-time">未转换</strong></div>
+          <div class="tz-row" data-city="Europe/London"><span class="tz-city">伦敦</span><strong class="tz-time">未转换</strong></div>
+          <div class="tz-row" data-city="Asia/Tokyo"><span class="tz-city">东京</span><strong class="tz-time">未转换</strong></div>
+        </div>
+      </div>
+
+      <div class="mini-panel">
+        <h2>开发常用</h2>
+        <div class="notes">
+          <div>当前秒级时间戳：<strong id="liveSeconds">计算中</strong></div>
+          <div>当前毫秒时间戳：<strong id="liveMilliseconds">计算中</strong></div>
+          <div>当前本地时区：<strong id="localZone">计算中</strong></div>
+          <div>显示 UTC 偏移：<strong id="zoneOffset">计算中</strong></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const zones = [
+      ["Asia/Shanghai", "Asia/Shanghai，上海"],
+      ["UTC", "UTC"],
+      ["America/Los_Angeles", "America/Los_Angeles，洛杉矶"],
+      ["America/New_York", "America/New_York，纽约"],
+      ["Europe/London", "Europe/London，伦敦"],
+      ["Europe/Berlin", "Europe/Berlin，柏林"],
+      ["Asia/Tokyo", "Asia/Tokyo，东京"],
+      ["Asia/Singapore", "Asia/Singapore，新加坡"],
+      ["Australia/Sydney", "Australia/Sydney，悉尼"]
+    ];
+
+    const stamp = document.getElementById("stamp");
+    const dateInput = document.getElementById("dateInput");
+    const inputZone = document.getElementById("inputZone");
+    const displayZone = document.getElementById("displayZone");
+    const status = document.getElementById("status");
+    const zoneStatus = document.getElementById("zoneStatus");
+    const values = Object.fromEntries(Array.from(document.querySelectorAll(".value")).map(el => [el.dataset.key, el]));
+    let currentDate = null;
+
+    function populateZones() {
+      const local = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Shanghai";
+      for (const [value, label] of zones) {
+        inputZone.append(new Option(label, value));
+        displayZone.append(new Option(label, value));
+      }
+      inputZone.value = zones.some(([value]) => value === local) ? local : "Asia/Shanghai";
+      displayZone.value = "Asia/Shanghai";
+      document.getElementById("localZone").textContent = local;
+    }
+
+    function getZonedParts(date, timeZone) {
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23"
+      });
+      const parts = Object.fromEntries(formatter.formatToParts(date).filter(part => part.type !== "literal").map(part => [part.type, Number(part.value)]));
+      return {
+        year: parts.year,
+        month: parts.month,
+        day: parts.day,
+        hour: parts.hour,
+        minute: parts.minute,
+        second: parts.second
+      };
+    }
+
+    function makeDateInZone(dateTimeValue, timeZone) {
+      const match = dateTimeValue.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
+      if (!match) return null;
+      const wanted = {
+        year: Number(match[1]),
+        month: Number(match[2]),
+        day: Number(match[3]),
+        hour: Number(match[4]),
+        minute: Number(match[5]),
+        second: Number(match[6] || 0)
+      };
+      const utcGuess = Date.UTC(wanted.year, wanted.month - 1, wanted.day, wanted.hour, wanted.minute, wanted.second);
+      const zoned = getZonedParts(new Date(utcGuess), timeZone);
+      const wantedAsUtc = Date.UTC(wanted.year, wanted.month - 1, wanted.day, wanted.hour, wanted.minute, wanted.second);
+      const zonedAsUtc = Date.UTC(zoned.year, zoned.month - 1, zoned.day, zoned.hour, zoned.minute, zoned.second);
+      return new Date(utcGuess + (wantedAsUtc - zonedAsUtc));
+    }
+
+    function pad2(value) {
+      return String(value).padStart(2, "0");
+    }
+
+    function formatInZone(date, timeZone) {
+      const parts = getZonedParts(date, timeZone);
+      return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)} ${pad2(parts.hour)}:${pad2(parts.minute)}:${pad2(parts.second)} ${timeZone}`;
+    }
+
+    function getOffsetLabel(date, timeZone) {
+      const parts = getZonedParts(date, timeZone);
+      const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+      const minutes = Math.round((asUtc - date.getTime()) / 60000);
+      const sign = minutes >= 0 ? "+" : "-";
+      const abs = Math.abs(minutes);
+      return `UTC${sign}${pad2(Math.floor(abs / 60))}:${pad2(abs % 60)}`;
+    }
+
+    function getIsoWeek(date, timeZone) {
+      const parts = getZonedParts(date, timeZone);
+      const utc = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+      const day = utc.getUTCDay() || 7;
+      utc.setUTCDate(utc.getUTCDate() + 4 - day);
+      const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
+      return Math.ceil((((utc - yearStart) / 86400000) + 1) / 7);
+    }
+
+    function getDayOfYear(date, timeZone) {
+      const parts = getZonedParts(date, timeZone);
+      const start = Date.UTC(parts.year, 0, 1);
+      const today = Date.UTC(parts.year, parts.month - 1, parts.day);
+      return Math.floor((today - start) / 86400000) + 1;
+    }
+
+    function getRelative(date) {
+      const seconds = Math.round((date.getTime() - Date.now()) / 1000);
+      const abs = Math.abs(seconds);
+      const units = [
+        ["年", 31536000],
+        ["月", 2592000],
+        ["天", 86400],
+        ["小时", 3600],
+        ["分钟", 60],
+        ["秒", 1]
+      ];
+      const [unit, size] = units.find(([, unitSeconds]) => abs >= unitSeconds) || ["秒", 1];
+      const amount = Math.max(1, Math.round(abs / size));
+      if (abs < 2) return "刚刚";
+      return seconds >= 0 ? `${amount} ${unit}后` : `${amount} ${unit}前`;
+    }
+
+    function setStatus(text, isError = false) {
+      status.textContent = text;
+      status.classList.toggle("error", isError);
+    }
+
+    function renderTimezoneCompare(date) {
+      document.querySelectorAll(".tz-row").forEach(row => {
+        const zone = row.dataset.city;
+        row.querySelector(".tz-time").textContent = `${formatInZone(date, zone)} ${getOffsetLabel(date, zone)}`;
+      });
+    }
+
+    function paint(date) {
+      const ms = date.getTime();
+      const zone = displayZone.value;
+      values.seconds.textContent = String(Math.floor(ms / 1000));
+      values.milliseconds.textContent = String(ms);
+      values.zoned.textContent = `${formatInZone(date, zone)} ${getOffsetLabel(date, zone)}`;
+      values.utc.textContent = formatInZone(date, "UTC");
+      values.iso.textContent = date.toISOString();
+      values.relative.textContent = getRelative(date);
+      values.weekday.textContent = new Intl.DateTimeFormat("zh-CN", { timeZone: zone, weekday: "long" }).format(date);
+      values.week.textContent = `ISO 第 ${getIsoWeek(date, zone)} 周`;
+      values.dayOfYear.textContent = `第 ${getDayOfYear(date, zone)} 天`;
+      zoneStatus.textContent = `${zone} ${getOffsetLabel(date, zone)}`;
+      document.getElementById("zoneOffset").textContent = getOffsetLabel(date, zone);
+      renderTimezoneCompare(date);
+      currentDate = date;
+      setStatus("已转换");
+    }
+
+    function parseTimestamp(raw) {
+      if (!/^-?\d+$/.test(raw)) return null;
+      const num = Number(raw);
+      if (!Number.isSafeInteger(num)) return null;
+      return new Date(Math.abs(num) < 100000000000 ? num * 1000 : num);
+    }
+
+    function convert() {
+      const raw = stamp.value.trim();
+      let date = null;
+      if (raw) {
+        date = parseTimestamp(raw);
+        if (!date) {
+          setStatus("时间戳格式无效", true);
+          return;
+        }
+      } else if (dateInput.value) {
+        date = makeDateInZone(dateInput.value, inputZone.value);
+      }
+      if (!date || Number.isNaN(date.getTime())) {
+        setStatus("请输入有效时间", true);
+        return;
+      }
+      paint(date);
+    }
+
+    function fillDateInput(date, zone = inputZone.value) {
+      const parts = getZonedParts(date, zone);
+      dateInput.value = `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}:${pad2(parts.minute)}:${pad2(parts.second)}`;
+    }
+
+    function setQuickDate(kind) {
+      const now = new Date();
+      let date = now;
+      if (kind === "today" || kind === "tomorrow") {
+        const baseParts = getZonedParts(now, inputZone.value);
+        const dayShift = kind === "tomorrow" ? 1 : 0;
+        const base = new Date(Date.UTC(baseParts.year, baseParts.month - 1, baseParts.day + dayShift, 0, 0, 0));
+        date = makeDateInZone(`${base.getUTCFullYear()}-${pad2(base.getUTCMonth() + 1)}-${pad2(base.getUTCDate())}T00:00:00`, inputZone.value);
+      } else if (kind === "week") {
+        date = new Date(now.getTime() + 7 * 86400000);
+      }
+      stamp.value = "";
+      fillDateInput(date);
+      paint(date);
+    }
+
+    function resetResults() {
+      Object.values(values).forEach(el => { el.textContent = "未转换"; });
+      document.querySelectorAll(".tz-time").forEach(el => { el.textContent = "未转换"; });
+      stamp.value = "";
+      dateInput.value = "";
+      currentDate = null;
+      setStatus("等待输入");
+    }
+
+    function tickLive() {
+      const now = Date.now();
+      document.getElementById("liveSeconds").textContent = String(Math.floor(now / 1000));
+      document.getElementById("liveMilliseconds").textContent = String(now);
+    }
+
+    populateZones();
+    tickLive();
+    setInterval(tickLive, 1000);
+    paint(new Date());
+
+    document.getElementById("convert").addEventListener("click", convert);
+    document.getElementById("clear").addEventListener("click", resetResults);
+    document.getElementById("quickNow").addEventListener("click", () => setQuickDate("now"));
+    document.getElementById("quickToday").addEventListener("click", () => setQuickDate("today"));
+    document.getElementById("quickTomorrow").addEventListener("click", () => setQuickDate("tomorrow"));
+    document.getElementById("quickWeek").addEventListener("click", () => setQuickDate("week"));
+    displayZone.addEventListener("change", () => { if (currentDate) paint(currentDate); });
+    inputZone.addEventListener("change", () => { if (dateInput.value) convert(); });
+    dateInput.addEventListener("input", () => { if (dateInput.value) stamp.value = ""; });
+    stamp.addEventListener("input", () => { if (stamp.value) dateInput.value = ""; });
+    document.querySelectorAll(".copy").forEach(button => {
+      button.addEventListener("click", async () => {
+        const text = values[button.dataset.copy].textContent;
+        if (text === "未转换") return;
+        try {
+          await navigator.clipboard.writeText(text);
+          setStatus("已复制");
+        } catch (_) {
+          setStatus("浏览器限制了复制权限", true);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

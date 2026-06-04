@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JSON 格式化 | DevKit Hub</title>
+  <style>
+    :root {
+      --bg: oklch(98% 0.005 250);
+      --surface: oklch(100% 0 0);
+      --surface-2: oklch(96% 0.007 250);
+      --fg: oklch(22% 0.02 240);
+      --muted: oklch(50% 0.018 240);
+      --border: oklch(90% 0.008 240);
+      --accent: oklch(58% 0.16 145);
+      --danger: oklch(61% 0.17 25);
+      --code-bg: oklch(18% 0.025 250);
+      --code-fg: oklch(92% 0.012 170);
+      --font-display: "Aptos Display", "SF Pro Display", "Segoe UI Variable Display", system-ui, sans-serif;
+      --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 var(--font-body); -webkit-font-smoothing: antialiased; }
+    a { color: inherit; text-decoration: none; }
+    button, textarea, select { font: inherit; }
+    a, button, textarea, select { touch-action: manipulation; }
+    :focus-visible { outline: 2px solid color-mix(in oklch, var(--accent) 68%, white); outline-offset: 3px; }
+    .skip-link { position: fixed; top: 12px; left: 12px; z-index: 100; translate: 0 -72px; border-radius: 8px; background: var(--code-bg); color: var(--code-fg); padding: 10px 12px; font: 13px/1 var(--font-mono); transition: translate 0.16s ease; }
+    .skip-link:focus { translate: 0 0; }
+    .shell { width: min(1180px, calc(100vw - 32px)); margin: 0 auto; padding: 18px 0 40px; }
+    .top { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 22px; }
+    .brand { display: inline-flex; gap: 10px; align-items: center; font-weight: 760; font-family: var(--font-display); }
+    .mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; background: var(--accent); color: white; font: 700 15px/1 var(--font-mono); }
+    .back { border: 1px solid var(--border); border-radius: 999px; padding: 8px 12px; color: var(--muted); background: var(--surface); }
+    h1 { margin: 0; font: 760 clamp(36px, 6vw, 72px)/0.98 var(--font-display); letter-spacing: 0; }
+    .lead { margin: 12px 0 22px; max-width: 720px; color: var(--muted); font-size: 18px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+    .btn, select { min-height: 42px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 0 14px; font-weight: 690; cursor: pointer; color: var(--fg); }
+    .btn.primary { background: var(--accent); border-color: transparent; color: white; }
+    .editor { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: hidden; }
+    .editor-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+    textarea { width: 100%; min-height: 520px; resize: vertical; border: 0; outline: none; padding: 16px; color: var(--code-fg); background: var(--code-bg); font: 14px/1.6 var(--font-mono); tab-size: 2; }
+    .status { color: var(--muted); font: 13px/1.4 var(--font-mono); }
+    .error { color: var(--danger); }
+    @media (max-width: 720px) { .shell { width: min(100% - 20px, 680px); } textarea { min-height: 430px; } .editor-head { align-items: flex-start; flex-direction: column; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; } }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
+  <div class="shell" id="main-content">
+    <header class="top">
+      <a class="brand" href="../index.html"><span class="mark">{ }</span><span>DevKit Hub</span></a>
+      <a class="back" href="../index.html">返回工具集合</a>
+    </header>
+    <h1>JSON 格式化</h1>
+    <p class="lead">粘贴压缩或混乱的 JSON，选择缩进后格式化。需要发给接口或命令行时可一键压缩。</p>
+    <div class="toolbar">
+      <select id="indent" aria-label="缩进空格数">
+        <option value="2">2 空格缩进</option>
+        <option value="4">4 空格缩进</option>
+        <option value="0">压缩成单行</option>
+      </select>
+      <button class="btn primary" id="format" type="button">格式化</button>
+      <button class="btn" id="minify" type="button">压缩</button>
+      <button class="btn" id="sample" type="button">填入示例</button>
+      <button class="btn" id="copy" type="button">复制结果</button>
+    </div>
+    <section class="editor">
+      <div class="editor-head"><strong>输入 / 输出</strong><span class="status" id="status">等待输入</span></div>
+      <textarea id="jsonInput" spellcheck="false" placeholder='{"name":"devkit","tools":["diff","format","timestamp"]}'></textarea>
+    </section>
+  </div>
+  <script>
+    const input = document.getElementById("jsonInput");
+    const status = document.getElementById("status");
+    const indent = document.getElementById("indent");
+
+    function parse() {
+      try {
+        const value = JSON.parse(input.value);
+        status.textContent = "JSON 有效";
+        status.classList.remove("error");
+        return value;
+      } catch (error) {
+        status.textContent = input.value.trim() ? error.message : "等待输入";
+        status.classList.toggle("error", Boolean(input.value.trim()));
+        return null;
+      }
+    }
+
+    function formatWith(spaces) {
+      const value = parse();
+      if (value === null) return;
+      input.value = JSON.stringify(value, null, spaces);
+      status.textContent = spaces === 0 ? "已压缩成单行" : `已格式化为 ${spaces} 空格缩进`;
+    }
+
+    document.getElementById("format").addEventListener("click", () => formatWith(Number(indent.value)));
+    document.getElementById("minify").addEventListener("click", () => formatWith(0));
+    document.getElementById("sample").addEventListener("click", () => {
+      input.value = '{"name":"DevKit Hub","tools":[{"id":"json-diff","ready":true},{"id":"json-format","ready":true},{"id":"timestamp","ready":true}],"theme":{"mode":"light","accent":"green"}}';
+      formatWith(2);
+    });
+    document.getElementById("copy").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(input.value);
+        status.textContent = "已复制到剪贴板";
+        status.classList.remove("error");
+      } catch (_) {
+        status.textContent = "浏览器限制了复制权限";
+        status.classList.add("error");
+      }
+    });
+    input.addEventListener("input", parse);
+  </script>
+</body>
+</html>

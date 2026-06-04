@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="../assets/css/app.css" />
+  <title>JSON Diff | DevKit Hub</title>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
+  <div class="tool-shell wide-shell" id="main-content">
+    <header class="tool-topbar">
+      <a class="brand" href="../index.html"><span class="mark">{ }</span><span>DevKit Hub</span></a>
+      <a class="back-link" href="../index.html">返回工具集合</a>
+    </header>
+
+    <section class="tool-title">
+      <div>
+        <h1 class="page-title">JSON Diff</h1>
+        <p class="lead">比较两个 JSON 值，按字段路径输出新增、删除和变更。</p>
+      </div>
+      <div class="actions">
+        <button class="btn" type="button" id="sample">填入示例</button>
+        <button class="btn primary" type="button" id="compare">比较</button>
+      </div>
+    </section>
+
+    <section class="tool-grid" aria-label="JSON 输入">
+      <label class="editor">
+        <span class="panel-head"><strong>左侧 JSON</strong><span class="status-text" id="leftStatus">等待输入</span></span>
+        <textarea id="leftJson" spellcheck="false" placeholder='{"name":"devkit","version":1}'></textarea>
+      </label>
+      <label class="editor">
+        <span class="panel-head"><strong>右侧 JSON</strong><span class="status-text" id="rightStatus">等待输入</span></span>
+        <textarea id="rightJson" spellcheck="false" placeholder='{"name":"devkit","version":2}'></textarea>
+      </label>
+    </section>
+
+    <section class="panel result-panel" aria-live="polite">
+      <div class="panel-head">
+        <strong>差异结果</strong>
+        <button class="btn" type="button" id="copy">复制结果</button>
+      </div>
+      <div class="result-body" id="result">粘贴两段 JSON 后点击比较。</div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">已复制</div>
+  <script src="../assets/js/shared.js"></script>
+  <script src="../assets/js/json-diff.js"></script>
+</body>
+</html>

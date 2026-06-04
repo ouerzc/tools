@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="../assets/css/app.css" />
+  <title>JSON 格式化 | DevKit Hub</title>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
+  <div class="tool-shell" id="main-content">
+    <header class="tool-topbar">
+      <a class="brand" href="../index.html"><span class="mark">{ }</span><span>DevKit Hub</span></a>
+      <a class="back-link" href="../index.html">返回工具集合</a>
+    </header>
+
+    <h1 class="page-title">JSON 格式化</h1>
+    <p class="lead">粘贴 JSON，选择缩进后格式化；也可以压缩成适合接口传输的单行。</p>
+
+    <div class="toolbar">
+      <select id="indent" aria-label="缩进空格数">
+        <option value="2">2 空格缩进</option>
+        <option value="4">4 空格缩进</option>
+        <option value="0">压缩成单行</option>
+      </select>
+      <button class="btn primary" id="format" type="button">格式化</button>
+      <button class="btn" id="minify" type="button">压缩</button>
+      <button class="btn" id="sample" type="button">填入示例</button>
+      <button class="btn" id="copy" type="button">复制结果</button>
+    </div>
+
+    <section class="editor">
+      <div class="panel-head">
+        <strong>输入 / 输出</strong>
+        <span class="status-text" id="status">等待输入</span>
+      </div>
+      <textarea id="jsonInput" spellcheck="false" placeholder='{"name":"devkit","tools":["diff","format","timestamp"]}'></textarea>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">已复制</div>
+  <script src="../assets/js/shared.js"></script>
+  <script src="../assets/js/json-format.js"></script>
+</body>
+</html>
