@@ -8,8 +8,11 @@ import SurfaceCard from "@/components/ui/SurfaceCard.vue";
 import { useToast } from "@/composables/useToast";
 import {
   createResult,
-  formatInZone,
+  formatZoneLabel,
+  formatZoneOption,
+  formatZonedDateTime,
   getOffsetLabel,
+  getOffsetTimeZoneId,
   getZonedParts,
   makeDateInZone,
   pad2,
@@ -21,19 +24,19 @@ import { copyText } from "@/lib/utils";
 
 const stamp = ref("");
 const dateInput = ref("");
-const inputZone = ref("Asia/Shanghai");
-const displayZone = ref("Asia/Shanghai");
+const inputZone = ref("UTC+08:00");
+const displayZone = ref("UTC+08:00");
 const status = ref("等待输入");
 const isError = ref(false);
 const currentDate = ref<Date | null>(null);
 const result = ref<TimestampResult | null>(null);
 const liveSeconds = ref("计算中");
 const liveMilliseconds = ref("计算中");
-const localZone = ref("Asia/Shanghai");
+const localZone = ref("UTC+08:00");
 const showToast = useToast();
 let liveTimer = 0;
 
-const timezoneCompareZones = ["Asia/Shanghai", "UTC", "America/Los_Angeles", "Europe/London", "Asia/Tokyo"];
+const timezoneCompareZones = ["UTC-08:00", "UTC+00:00", "UTC+08:00", "UTC+09:00", "UTC+12:00"];
 
 const resultRows = computed(() => [
   ["seconds", "Unix 秒", result.value?.seconds || "未转换"],
@@ -47,20 +50,37 @@ const resultRows = computed(() => [
   ["dayOfYear", "年内第几天", result.value?.dayOfYear || "未转换"]
 ]);
 
-const zoneStatus = computed(() => {
-  if (!currentDate.value) return displayZone.value;
-  return `${displayZone.value} ${getOffsetLabel(currentDate.value, displayZone.value)}`;
-});
+const referenceDate = computed(() => currentDate.value || new Date());
+const zoneStatus = computed(() => formatZoneLabel(displayZone.value, referenceDate.value));
+
+const inputZoneOptions = computed(() =>
+  zones.map(([zone]) => {
+    const optionDate = dateInput.value ? makeDateInZone(dateInput.value, zone) || referenceDate.value : referenceDate.value;
+    return {
+      zone,
+      label: formatZoneOption(zone, optionDate)
+    };
+  })
+);
+
+const displayZoneOptions = computed(() =>
+  zones.map(([zone]) => ({
+    zone,
+    label: formatZoneOption(zone, referenceDate.value)
+  }))
+);
 
 const timezoneRows = computed(() =>
   timezoneCompareZones.map(zone => ({
     zone,
-    label: zone === "Asia/Shanghai" ? "上海" : zone === "America/Los_Angeles" ? "洛杉矶" : zone === "Europe/London" ? "伦敦" : zone === "Asia/Tokyo" ? "东京" : "UTC",
-    value: currentDate.value ? `${formatInZone(currentDate.value, zone)} ${getOffsetLabel(currentDate.value, zone)}` : "未转换"
+    label: formatZoneLabel(zone, referenceDate.value),
+    value: currentDate.value ? formatZonedDateTime(currentDate.value, zone) : "未转换"
   }))
 );
 
-const zoneOffset = computed(() => (currentDate.value ? getOffsetLabel(currentDate.value, displayZone.value) : "计算中"));
+const zoneOffset = computed(() => getOffsetLabel(referenceDate.value, displayZone.value));
+const activeInputMode = computed(() => (stamp.value.trim() ? "timestamp" : dateInput.value ? "date" : null));
+const localZoneLabel = computed(() => formatZoneLabel(localZone.value, referenceDate.value));
 
 function setStatus(message: string, error = false) {
   status.value = message;
@@ -140,9 +160,11 @@ async function copyValue(value: string) {
 }
 
 onMounted(() => {
-  const resolvedZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Shanghai";
-  localZone.value = resolvedZone;
-  inputZone.value = zones.some(zone => zone[0] === resolvedZone) ? resolvedZone : "Asia/Shanghai";
+  const resolvedZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const detectedZone = getOffsetTimeZoneId(new Date(), resolvedZone);
+  localZone.value = detectedZone;
+  inputZone.value = detectedZone;
+  displayZone.value = detectedZone;
   tickLive();
   liveTimer = window.setInterval(tickLive, 1000);
   paint(new Date());
@@ -181,30 +203,54 @@ onUnmounted(() => {
         </div>
 
         <div class="form-grid">
-          <label class="field">
-            <span>Unix 时间戳</span>
-            <input v-model="stamp" inputmode="numeric" placeholder="1718006400 或 1718006400000" autocomplete="off" @input="dateInput = ''" />
-          </label>
+          <div class="input-mode-grid" aria-label="互斥输入方式">
+            <section class="input-mode-card" :class="{ active: activeInputMode === 'timestamp', muted: activeInputMode === 'date' }" aria-labelledby="timestamp-input-title">
+              <div class="input-mode-head">
+                <span class="input-mode-mark">T</span>
+                <div>
+                  <strong id="timestamp-input-title">时间戳转日期</strong>
+                  <span>秒或毫秒</span>
+                </div>
+              </div>
+              <label class="field">
+                <span>Unix 时间戳</span>
+                <input v-model="stamp" inputmode="numeric" placeholder="1718006400 或 1718006400000" autocomplete="off" @input="dateInput = ''" />
+              </label>
+            </section>
 
-          <div class="inline-fields">
+            <div class="input-mode-divider" aria-hidden="true">
+              <span>或</span>
+            </div>
+
+            <section class="input-mode-card" :class="{ active: activeInputMode === 'date', muted: activeInputMode === 'timestamp' }" aria-labelledby="date-input-title">
+              <div class="input-mode-head">
+                <span class="input-mode-mark">D</span>
+                <div>
+                  <strong id="date-input-title">日期转时间戳</strong>
+                  <span>日期时间 + 城市 UTC 偏移</span>
+                </div>
+              </div>
+              <label class="field">
+                <span>日期时间</span>
+                <input v-model="dateInput" type="datetime-local" step="1" @input="stamp = ''" />
+              </label>
+              <label class="field">
+                <span>输入时区</span>
+                <select v-model="inputZone" @change="dateInput ? convert() : undefined">
+                  <option v-for="zone in inputZoneOptions" :key="zone.zone" :value="zone.zone">{{ zone.label }}</option>
+                </select>
+              </label>
+            </section>
+          </div>
+
+          <div class="output-settings">
             <label class="field">
-              <span>日期时间</span>
-              <input v-model="dateInput" type="datetime-local" step="1" @input="stamp = ''" />
-            </label>
-            <label class="field">
-              <span>输入时区</span>
-              <select v-model="inputZone" @change="dateInput ? convert() : undefined">
-                <option v-for="zone in zones" :key="zone[0]" :value="zone[0]">{{ zone[1] }}</option>
+              <span>显示时区</span>
+              <select v-model="displayZone" @change="currentDate ? paint(currentDate) : undefined">
+                <option v-for="zone in displayZoneOptions" :key="zone.zone" :value="zone.zone">{{ zone.label }}</option>
               </select>
             </label>
           </div>
-
-          <label class="field">
-            <span>显示时区</span>
-            <select v-model="displayZone" @change="currentDate ? paint(currentDate) : undefined">
-              <option v-for="zone in zones" :key="zone[0]" :value="zone[0]">{{ zone[1] }}</option>
-            </select>
-          </label>
 
           <div class="quick-block">
             <span>快捷入口</span>
@@ -256,7 +302,7 @@ onUnmounted(() => {
         <div class="notes">
           <div>当前秒级时间戳：<strong>{{ liveSeconds }}</strong></div>
           <div>当前毫秒时间戳：<strong>{{ liveMilliseconds }}</strong></div>
-          <div>当前本地时区：<strong>{{ localZone }}</strong></div>
+          <div>当前本地时区：<strong>{{ localZoneLabel }}</strong></div>
           <div>显示 UTC 偏移：<strong>{{ zoneOffset }}</strong></div>
         </div>
       </SurfaceCard>

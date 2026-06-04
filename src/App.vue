@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, type Component } from "vue";
-import { ArrowLeft, Braces, ChevronRight, Clock3, Command, Copy, GitCompareArrows, Layers, PanelTop, Search, Sparkles } from "@lucide/vue";
+import { ArrowLeft, Braces, ChevronRight, Clock3, Command, Copy, GitCompareArrows, Moon, PanelTop, Search, Sparkles, Sun } from "@lucide/vue";
 
 import ToastViewport from "@/components/ToastViewport.vue";
 import JsonDiffTool from "@/components/tools/JsonDiffTool.vue";
@@ -29,15 +29,48 @@ const searchInput = ref<HTMLInputElement | null>(null);
 const query = ref("");
 const activeToolId = ref<ToolId | null>(readHash());
 const toast = provideToast();
+const theme = ref<ThemeName>(readStoredTheme());
 
 const activeTool = computed(() => (activeToolId.value ? getToolById(activeToolId.value) : null));
 const activeComponent = computed(() => (activeToolId.value ? componentMap[activeToolId.value] : null));
+const themeIcon = computed(() => (theme.value === "dark" ? Sun : Moon));
+const themeToggleLabel = computed(() => (theme.value === "dark" ? "切换到白色主题" : "切换到黑色主题"));
 const filteredTools = computed(() => {
   const needle = query.value.trim().toLowerCase();
   if (!needle) return tools;
   return tools.filter(tool => [tool.title, tool.description, tool.longDescription, tool.keywords, ...tool.tags].join(" ").toLowerCase().includes(needle));
 });
 const allTags = computed(() => Array.from(new Set(tools.flatMap(tool => tool.tags))));
+
+type ThemeName = "light" | "dark";
+
+const themeStorageKey = "devkit-theme";
+
+function isThemeName(value: string | null): value is ThemeName {
+  return value === "light" || value === "dark";
+}
+
+function readStoredTheme(): ThemeName {
+  try {
+    const storedTheme = window.localStorage.getItem(themeStorageKey);
+    if (isThemeName(storedTheme)) return storedTheme;
+  } catch {
+    // Ignore storage restrictions and keep the default light theme.
+  }
+  return "light";
+}
+
+function applyTheme(nextTheme: ThemeName) {
+  document.documentElement.dataset.theme = nextTheme;
+}
+
+function saveTheme(nextTheme: ThemeName) {
+  try {
+    window.localStorage.setItem(themeStorageKey, nextTheme);
+  } catch {
+    // Ignore storage restrictions; the in-memory theme still updates.
+  }
+}
 
 function readHash() {
   const hash = window.location.hash.replace(/^#\/?/, "");
@@ -113,7 +146,14 @@ function shortcutLabel(tool: ToolMeta) {
   return `${tool.shortcut} / ${tool.kind}`;
 }
 
+function toggleTheme() {
+  theme.value = theme.value === "dark" ? "light" : "dark";
+  applyTheme(theme.value);
+  saveTheme(theme.value);
+}
+
 onMounted(() => {
+  applyTheme(theme.value);
   window.addEventListener("hashchange", syncFromHash);
   window.addEventListener("keydown", handleKeydown);
 });
@@ -127,7 +167,7 @@ onUnmounted(() => {
 <template>
   <a class="skip-link" href="#main-content">跳到主要内容</a>
 
-  <div class="app-shell">
+  <div class="app-layout">
     <header class="topbar">
       <a class="brand" href="#" aria-label="DevKit Hub 首页" @click.prevent="goHome">
         <span class="mark"><Braces :size="18" aria-hidden="true" /></span>
@@ -135,126 +175,109 @@ onUnmounted(() => {
       </a>
 
       <nav class="nav" aria-label="主导航">
-        <a href="#" :class="{ active: !activeToolId }" @click.prevent="goHome">工具</a>
+        <a href="#" :class="{ active: !activeToolId }" @click.prevent="goHome">
+          <span class="nav-icon"><Braces :size="15" aria-hidden="true" /></span>
+          <span>工具</span>
+        </a>
         <a v-for="tool in tools" :key="tool.id" :href="toolHref(tool.id)" :class="{ active: activeToolId === tool.id }" @click.prevent="openTool(tool.id)">
-          {{ tool.title }}
+          <span class="nav-icon"><component :is="iconForTool(tool.id)" :size="15" aria-hidden="true" /></span>
+          <span>{{ tool.title }}</span>
         </a>
       </nav>
 
-      <div class="status-chip">
-        <span class="dot"></span>
-        <span>VUE</span>
+      <div class="sidebar-panels" aria-label="侧边栏标签">
+        <section class="sidebar-panel" aria-label="标签">
+          <div class="side-head">
+            <h2>标签</h2>
+            <span class="mono">{{ allTags.length }}</span>
+          </div>
+          <div class="tag-list">
+            <Badge v-for="tag in allTags" :key="tag" tone="muted">{{ tag }}</Badge>
+          </div>
+        </section>
       </div>
+
+      <button class="theme-toggle" type="button" :aria-label="themeToggleLabel" :title="themeToggleLabel" @click="toggleTheme">
+        <component :is="themeIcon" :size="17" aria-hidden="true" />
+      </button>
     </header>
 
-    <main id="main-content">
-      <section v-if="!activeToolId" class="home-layout" aria-labelledby="page-title">
-        <div class="stack">
-          <SurfaceCard class="command-panel">
-            <div class="headline">
-              <div>
-                <Badge tone="muted">Local-first toolkit</Badge>
-                <h1 id="page-title">开发工具</h1>
+    <div class="app-shell">
+      <main id="main-content">
+        <section v-if="!activeToolId" class="home-layout" aria-labelledby="page-title">
+          <div class="stack">
+            <SurfaceCard class="command-panel">
+              <div class="headline">
+                <div>
+                  <Badge tone="muted">Local-first toolkit</Badge>
+                  <h1 id="page-title">开发工具</h1>
+                </div>
+                <span class="count">{{ filteredTools.length }} / {{ tools.length }} tools</span>
               </div>
-              <span class="count">{{ filteredTools.length }} / {{ tools.length }} tools</span>
-            </div>
 
-            <div class="command-row">
-              <label class="searchbox">
-                <Search :size="18" aria-hidden="true" />
-                <input ref="searchInput" v-model="query" type="search" placeholder="搜索 JSON、diff、timestamp..." autocomplete="off" />
-                <span class="kbd"><Command :size="12" aria-hidden="true" />K</span>
-              </label>
-              <AppButton size="lg" @click="copyHubLink()">
-                <Copy :size="16" aria-hidden="true" />
-                复制入口
-              </AppButton>
-            </div>
+              <div class="command-row">
+                <label class="searchbox">
+                  <Search :size="18" aria-hidden="true" />
+                  <input ref="searchInput" v-model="query" type="search" placeholder="搜索 JSON、diff、timestamp..." autocomplete="off" />
+                  <span class="kbd"><Command :size="12" aria-hidden="true" />K</span>
+                </label>
+                <AppButton size="lg" @click="copyHubLink()">
+                  <Copy :size="16" aria-hidden="true" />
+                  复制入口
+                </AppButton>
+              </div>
 
-            <div class="tag-row" aria-label="常用标签">
-              <Badge>JSON</Badge>
-              <Badge tone="muted">Diff</Badge>
-              <Badge tone="muted">Formatter</Badge>
-              <Badge tone="muted">Timestamp</Badge>
-            </div>
-          </SurfaceCard>
+              <div class="tag-row" aria-label="常用标签">
+                <Badge>JSON</Badge>
+                <Badge tone="muted">Diff</Badge>
+                <Badge tone="muted">Formatter</Badge>
+                <Badge tone="muted">Timestamp</Badge>
+              </div>
+            </SurfaceCard>
 
-          <section class="tools-grid" aria-label="工具入口" aria-live="polite">
-            <button v-for="tool in filteredTools" :key="tool.id" class="tool-card" type="button" @click="openTool(tool.id)">
-              <span class="tool-top">
-                <span class="tool-icon"><component :is="iconForTool(tool.id)" :size="20" aria-hidden="true" /></span>
-                <span class="tool-kind">{{ shortcutLabel(tool) }}</span>
-              </span>
-              <span class="tool-copy">
-                <strong>{{ tool.title }}</strong>
-                <span>{{ tool.longDescription }}</span>
-              </span>
-              <span class="tool-action">
-                <span>打开工具</span>
-                <ChevronRight :size="18" aria-hidden="true" />
-              </span>
-            </button>
-          </section>
-
-          <SurfaceCard v-if="filteredTools.length === 0" class="empty-state">
-            没有匹配工具。
-          </SurfaceCard>
-        </div>
-
-        <aside class="sidebar" aria-label="快捷入口">
-          <SurfaceCard tone="subtle">
-            <div class="side-head">
-              <h2>快捷入口</h2>
-              <span class="mono">D/F/T</span>
-            </div>
-            <div class="shortcuts">
-              <button v-for="tool in tools" :key="tool.id" type="button" class="shortcut-row" @click="openTool(tool.id)">
-                <span>
-                  <strong>{{ tool.shortcut }}</strong>
-                  {{ tool.title }}
+            <section class="tools-grid" aria-label="工具入口" aria-live="polite">
+              <button v-for="tool in filteredTools" :key="tool.id" class="tool-card" type="button" @click="openTool(tool.id)">
+                <span class="tool-top">
+                  <span class="tool-icon"><component :is="iconForTool(tool.id)" :size="20" aria-hidden="true" /></span>
+                  <span class="tool-kind">{{ shortcutLabel(tool) }}</span>
                 </span>
-                <ChevronRight :size="16" aria-hidden="true" />
+                <span class="tool-copy">
+                  <strong>{{ tool.title }}</strong>
+                  <span>{{ tool.longDescription }}</span>
+                </span>
+                <span class="tool-action">
+                  <span>打开工具</span>
+                  <ChevronRight :size="18" aria-hidden="true" />
+                </span>
               </button>
-            </div>
-          </SurfaceCard>
+            </section>
 
-          <SurfaceCard tone="subtle">
-            <div class="side-head">
-              <h2>标签</h2>
-              <span class="mono">{{ allTags.length }}</span>
-            </div>
-            <div class="tag-list">
-              <Badge v-for="tag in allTags" :key="tag" tone="muted">{{ tag }}</Badge>
-            </div>
-          </SurfaceCard>
-
-          <SurfaceCard tone="subtle" class="principle-card">
-            <div class="principle-icon"><Layers :size="18" aria-hidden="true" /></div>
-            <strong>单页工具台</strong>
-            <p>所有工具在浏览器本地运行，不依赖后端请求。</p>
-          </SurfaceCard>
-        </aside>
-      </section>
-
-      <section v-else class="active-shell">
-        <div class="workspace-bar">
-          <AppButton variant="outline" size="sm" @click="goHome">
-            <ArrowLeft :size="15" aria-hidden="true" />
-            返回工具集合
-          </AppButton>
-          <div v-if="activeTool" class="workspace-meta">
-            <span class="tool-icon small"><component :is="iconForTool(activeTool.id)" :size="16" aria-hidden="true" /></span>
-            <span>{{ activeTool.title }}</span>
+            <SurfaceCard v-if="filteredTools.length === 0" class="empty-state">
+              没有匹配工具。
+            </SurfaceCard>
           </div>
-          <AppButton variant="ghost" size="sm" @click="copyHubLink()">
-            <Copy :size="15" aria-hidden="true" />
-            复制入口
-          </AppButton>
-        </div>
+        </section>
 
-        <component :is="activeComponent" v-if="activeComponent" />
-      </section>
-    </main>
+        <section v-else class="active-shell">
+          <div class="workspace-bar">
+            <AppButton variant="outline" size="sm" @click="goHome">
+              <ArrowLeft :size="15" aria-hidden="true" />
+              返回工具集合
+            </AppButton>
+            <div v-if="activeTool" class="workspace-meta">
+              <span class="tool-icon small"><component :is="iconForTool(activeTool.id)" :size="16" aria-hidden="true" /></span>
+              <span>{{ activeTool.title }}</span>
+            </div>
+            <AppButton variant="ghost" size="sm" @click="copyHubLink()">
+              <Copy :size="15" aria-hidden="true" />
+              复制入口
+            </AppButton>
+          </div>
+
+          <component :is="activeComponent" v-if="activeComponent" />
+        </section>
+      </main>
+    </div>
   </div>
 
   <footer class="footer">
