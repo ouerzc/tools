@@ -18,6 +18,14 @@ function plain<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function cssBlock(selector: string) {
+  const css = fs.readFileSync(path.join(root, "src/styles/app.css"), "utf8");
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = css.match(new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`));
+  assert.ok(match, `${selector} should have a style block`);
+  return match[1];
+}
+
 let mountedApp: VueApp<Element> | null = null;
 
 function createMemoryStorage(): Storage {
@@ -126,6 +134,41 @@ describe("sidebar", () => {
 
     assert.equal(document.querySelector('[aria-label="侧边栏标签"]'), null);
     assert.equal(document.querySelector('[aria-label="标签"]'), null);
+  });
+
+  test("toggles between expanded and collapsed states", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+
+    const target = mountApplication();
+    await nextTick();
+
+    const layout = target.querySelector(".app-layout");
+    const collapseButton = document.querySelector<HTMLButtonElement>('[aria-label="收起侧边栏"]');
+    assert.ok(layout, "app layout should be mounted");
+    assert.ok(collapseButton, "sidebar collapse button should be available");
+    assert.equal(layout.classList.contains("app-layout--sidebar-collapsed"), false);
+
+    collapseButton.click();
+    await nextTick();
+
+    assert.equal(layout.classList.contains("app-layout--sidebar-collapsed"), true);
+    assert.equal(window.localStorage.getItem("devkit-sidebar-collapsed"), "true");
+
+    const expandButton = document.querySelector<HTMLButtonElement>('[aria-label="展开侧边栏"]');
+    assert.ok(expandButton, "sidebar expand button should replace the collapse button");
+    expandButton.click();
+    await nextTick();
+
+    assert.equal(layout.classList.contains("app-layout--sidebar-collapsed"), false);
+    assert.equal(window.localStorage.getItem("devkit-sidebar-collapsed"), "false");
+  });
+
+  test("collapsed logo uses the same center column as navigation icons", () => {
+    const collapsedBrand = cssBlock(".topbar--collapsed .brand");
+
+    assert.match(collapsedBrand, /width:\s*42px;/);
+    assert.match(collapsedBrand, /height:\s*42px;/);
+    assert.match(collapsedBrand, /gap:\s*0;/);
   });
 });
 

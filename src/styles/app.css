@@ -200,6 +200,11 @@ a {
   max-width: 1360px;
   min-height: var(--layout-min-height);
   margin: 0 auto 22px;
+  transition: grid-template-columns 180ms ease;
+}
+
+.app-layout--sidebar-collapsed {
+  grid-template-columns: 84px minmax(0, 1fr);
 }
 
 .app-shell {
@@ -234,8 +239,17 @@ main {
   backdrop-filter: blur(18px);
 }
 
+.topbar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
 .brand,
 .status-chip,
+.sidebar-toggle,
 .theme-toggle,
 .workspace-meta,
 .ui-button,
@@ -253,6 +267,64 @@ main {
   font-weight: 700;
   line-height: 1.2;
   white-space: nowrap;
+}
+
+.sidebar-toggle {
+  flex: 0 0 auto;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--primary);
+  padding: 0;
+  box-shadow: var(--card-shadow);
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.sidebar-toggle:hover {
+  border-color: var(--interactive-border);
+  background: var(--primary-soft);
+}
+
+.sidebar-toggle:active {
+  transform: scale(0.96);
+}
+
+.topbar--collapsed {
+  align-items: center;
+  padding: 14px;
+}
+
+.topbar--collapsed .topbar-head {
+  flex-direction: column;
+}
+
+.topbar--collapsed .brand {
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  gap: 0;
+}
+
+.topbar--collapsed .brand span:not(.mark),
+.topbar--collapsed .nav a > span:not(.nav-icon) {
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.topbar--collapsed .nav {
+  align-items: center;
+}
+
+.topbar--collapsed .nav a {
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  gap: 0;
+  padding: 0;
 }
 
 .mark,
@@ -1310,6 +1382,10 @@ textarea:focus,
     margin-bottom: 22px;
   }
 
+  .app-layout--sidebar-collapsed {
+    grid-template-columns: none;
+  }
+
   .app-shell {
     min-height: 0;
     padding: 18px;
@@ -1326,6 +1402,23 @@ textarea:focus,
     padding: 12px;
   }
 
+  .topbar-head,
+  .topbar--collapsed .topbar-head {
+    flex-direction: row;
+  }
+
+  .topbar--collapsed {
+    align-items: stretch;
+    padding: 12px;
+  }
+
+  .topbar--collapsed .brand span:not(.mark),
+  .topbar--collapsed .nav a > span:not(.nav-icon) {
+    width: auto;
+    opacity: 1;
+    overflow: visible;
+  }
+
   .nav {
     grid-column: 1 / -1;
     flex-direction: row;
@@ -1336,6 +1429,21 @@ textarea:focus,
 
   .nav a {
     padding: 10px 12px;
+  }
+
+  .topbar--collapsed .nav {
+    align-items: stretch;
+  }
+
+  .topbar--collapsed .nav a {
+    width: auto;
+    height: auto;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .sidebar-toggle {
+    display: none;
   }
 
   .theme-toggle {

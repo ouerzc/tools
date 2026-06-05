@@ -1,6 +1,21 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, type Component } from "vue";
-import { ArrowLeft, Braces, ChevronRight, Clock3, Command, Copy, GitCompareArrows, Moon, PanelTop, Search, Sparkles, Sun } from "@lucide/vue";
+import {
+  ArrowLeft,
+  Braces,
+  ChevronRight,
+  Clock3,
+  Command,
+  Copy,
+  GitCompareArrows,
+  Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelTop,
+  Search,
+  Sparkles,
+  Sun
+} from "@lucide/vue";
 
 import ToastViewport from "@/components/ToastViewport.vue";
 import JsonDiffTool from "@/components/tools/JsonDiffTool.vue";
@@ -25,25 +40,29 @@ const iconMap: Record<ToolId, Component> = {
   timestamp: Clock3
 };
 
+type ThemeName = "light" | "dark";
+
+const themeStorageKey = "devkit-theme";
+const sidebarStorageKey = "devkit-sidebar-collapsed";
+
 const searchInput = ref<HTMLInputElement | null>(null);
 const query = ref("");
 const activeToolId = ref<ToolId | null>(readHash());
 const toast = provideToast();
 const theme = ref<ThemeName>(readStoredTheme());
+const sidebarCollapsed = ref(readStoredSidebarState());
 
 const activeTool = computed(() => (activeToolId.value ? getToolById(activeToolId.value) : null));
 const activeComponent = computed(() => (activeToolId.value ? componentMap[activeToolId.value] : null));
 const themeIcon = computed(() => (theme.value === "dark" ? Sun : Moon));
 const themeToggleLabel = computed(() => (theme.value === "dark" ? "切换到白色主题" : "切换到黑色主题"));
+const sidebarToggleIcon = computed(() => (sidebarCollapsed.value ? PanelLeftOpen : PanelLeftClose));
+const sidebarToggleLabel = computed(() => (sidebarCollapsed.value ? "展开侧边栏" : "收起侧边栏"));
 const filteredTools = computed(() => {
   const needle = query.value.trim().toLowerCase();
   if (!needle) return tools;
   return tools.filter(tool => [tool.title, tool.description, tool.longDescription, tool.keywords, ...tool.tags].join(" ").toLowerCase().includes(needle));
 });
-
-type ThemeName = "light" | "dark";
-
-const themeStorageKey = "devkit-theme";
 
 function isThemeName(value: string | null): value is ThemeName {
   return value === "light" || value === "dark";
@@ -59,6 +78,14 @@ function readStoredTheme(): ThemeName {
   return "light";
 }
 
+function readStoredSidebarState() {
+  try {
+    return window.localStorage.getItem(sidebarStorageKey) === "true";
+  } catch {
+    return false;
+  }
+}
+
 function applyTheme(nextTheme: ThemeName) {
   document.documentElement.dataset.theme = nextTheme;
 }
@@ -68,6 +95,14 @@ function saveTheme(nextTheme: ThemeName) {
     window.localStorage.setItem(themeStorageKey, nextTheme);
   } catch {
     // Ignore storage restrictions; the in-memory theme still updates.
+  }
+}
+
+function saveSidebarState(nextCollapsed: boolean) {
+  try {
+    window.localStorage.setItem(sidebarStorageKey, String(nextCollapsed));
+  } catch {
+    // Ignore storage restrictions; the in-memory sidebar state still updates.
   }
 }
 
@@ -151,6 +186,11 @@ function toggleTheme() {
   saveTheme(theme.value);
 }
 
+function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value;
+  saveSidebarState(sidebarCollapsed.value);
+}
+
 onMounted(() => {
   applyTheme(theme.value);
   window.addEventListener("hashchange", syncFromHash);
@@ -166,19 +206,25 @@ onUnmounted(() => {
 <template>
   <a class="skip-link" href="#main-content">跳到主要内容</a>
 
-  <div class="app-layout">
-    <header class="topbar">
-      <a class="brand" href="#" aria-label="DevKit Hub 首页" @click.prevent="goHome">
-        <span class="mark"><Braces :size="18" aria-hidden="true" /></span>
-        <span>DevKit Hub</span>
-      </a>
+  <div class="app-layout" :class="{ 'app-layout--sidebar-collapsed': sidebarCollapsed }">
+    <header class="topbar" :class="{ 'topbar--collapsed': sidebarCollapsed }">
+      <div class="topbar-head">
+        <a class="brand" href="#" aria-label="DevKit Hub 首页" title="DevKit Hub" @click.prevent="goHome">
+          <span class="mark"><Braces :size="18" aria-hidden="true" /></span>
+          <span>DevKit Hub</span>
+        </a>
+
+        <button class="sidebar-toggle" type="button" :aria-label="sidebarToggleLabel" :title="sidebarToggleLabel" @click="toggleSidebar">
+          <component :is="sidebarToggleIcon" :size="17" aria-hidden="true" />
+        </button>
+      </div>
 
       <nav class="nav" aria-label="主导航">
-        <a href="#" :class="{ active: !activeToolId }" @click.prevent="goHome">
+        <a href="#" :class="{ active: !activeToolId }" title="工具" @click.prevent="goHome">
           <span class="nav-icon"><Braces :size="15" aria-hidden="true" /></span>
           <span>工具</span>
         </a>
-        <a v-for="tool in tools" :key="tool.id" :href="toolHref(tool.id)" :class="{ active: activeToolId === tool.id }" @click.prevent="openTool(tool.id)">
+        <a v-for="tool in tools" :key="tool.id" :href="toolHref(tool.id)" :class="{ active: activeToolId === tool.id }" :title="tool.title" @click.prevent="openTool(tool.id)">
           <span class="nav-icon"><component :is="iconForTool(tool.id)" :size="15" aria-hidden="true" /></span>
           <span>{{ tool.title }}</span>
         </a>
