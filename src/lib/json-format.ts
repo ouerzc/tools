@@ -8,6 +8,10 @@ export interface JsonFormatResult {
   error: string;
 }
 
+function fallbackParseError(locale: string) {
+  return locale === "en-US" ? "JSON parse failed" : "JSON 解析失败";
+}
+
 export function normalizeIndent(indent: unknown): JsonIndent {
   const value = Number(indent);
   if (value === 4) return 4;
@@ -15,7 +19,7 @@ export function normalizeIndent(indent: unknown): JsonIndent {
   return 2;
 }
 
-export function formatJson(raw: string, indent: unknown): JsonFormatResult {
+export function formatJson(raw: string, indent: unknown, locale = "zh-CN"): JsonFormatResult {
   const spaces = normalizeIndent(indent);
 
   try {
@@ -33,7 +37,7 @@ export function formatJson(raw: string, indent: unknown): JsonFormatResult {
       text: "",
       value: undefined,
       indent: spaces,
-      error: error instanceof Error ? error.message : "JSON 解析失败"
+      error: error instanceof Error ? error.message : fallbackParseError(locale)
     };
   }
 }

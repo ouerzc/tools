@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, type Component } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   ArrowLeft,
   Braces,
@@ -8,6 +9,7 @@ import {
   Command,
   Copy,
   GitCompareArrows,
+  Languages,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
@@ -25,7 +27,8 @@ import AppButton from "@/components/ui/AppButton.vue";
 import Badge from "@/components/ui/Badge.vue";
 import SurfaceCard from "@/components/ui/SurfaceCard.vue";
 import { provideToast } from "@/composables/useToast";
-import { getToolById, isToolId, tools, type ToolId, type ToolMeta } from "@/lib/tools";
+import { localeLabels, setAppLocale, supportedLocales, type Locale } from "@/i18n";
+import { getLocalizedToolById, getLocalizedTools, isToolId, tools, type ToolId, type ToolMeta } from "@/lib/tools";
 import { copyText } from "@/lib/utils";
 
 const componentMap: Record<ToolId, Component> = {
@@ -51,17 +54,27 @@ const activeToolId = ref<ToolId | null>(readHash());
 const toast = provideToast();
 const theme = ref<ThemeName>(readStoredTheme());
 const sidebarCollapsed = ref(readStoredSidebarState());
+const { t, locale } = useI18n({ useScope: "global" });
 
-const activeTool = computed(() => (activeToolId.value ? getToolById(activeToolId.value) : null));
+const translate = (key: string, values?: Record<string, string | number>) => t(key, values || {});
+
+const selectedLocale = computed({
+  get: () => locale.value as Locale,
+  set: nextLocale => {
+    setAppLocale(nextLocale);
+  }
+});
+const localizedTools = computed(() => getLocalizedTools(translate));
+const activeTool = computed(() => (activeToolId.value ? getLocalizedToolById(activeToolId.value, translate) : null));
 const activeComponent = computed(() => (activeToolId.value ? componentMap[activeToolId.value] : null));
 const themeIcon = computed(() => (theme.value === "dark" ? Sun : Moon));
-const themeToggleLabel = computed(() => (theme.value === "dark" ? "切换到白色主题" : "切换到黑色主题"));
+const themeToggleLabel = computed(() => (theme.value === "dark" ? t("app.theme.toLight") : t("app.theme.toDark")));
 const sidebarToggleIcon = computed(() => (sidebarCollapsed.value ? PanelLeftOpen : PanelLeftClose));
-const sidebarToggleLabel = computed(() => (sidebarCollapsed.value ? "展开侧边栏" : "收起侧边栏"));
+const sidebarToggleLabel = computed(() => (sidebarCollapsed.value ? t("app.sidebar.expand") : t("app.sidebar.collapse")));
 const filteredTools = computed(() => {
   const needle = query.value.trim().toLowerCase();
-  if (!needle) return tools;
-  return tools.filter(tool => [tool.title, tool.description, tool.longDescription, tool.keywords, ...tool.tags].join(" ").toLowerCase().includes(needle));
+  if (!needle) return localizedTools.value;
+  return localizedTools.value.filter(tool => [tool.title, tool.description, tool.longDescription, tool.keywords, ...tool.tags].join(" ").toLowerCase().includes(needle));
 });
 
 function isThemeName(value: string | null): value is ThemeName {
@@ -173,7 +186,7 @@ async function copyHubLink(id?: ToolId) {
   const url = new URL(window.location.href);
   url.hash = id || activeToolId.value || "";
   const ok = await copyText(url.href);
-  toast.showToast(ok ? "已复制入口" : "浏览器限制了复制权限");
+  toast.showToast(ok ? t("app.toast.entryCopied") : t("app.toast.copyBlocked"));
 }
 
 function shortcutLabel(tool: ToolMeta) {
@@ -204,12 +217,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <a class="skip-link" href="#main-content">跳到主要内容</a>
+  <a class="skip-link" href="#main-content">{{ t("app.skipLink") }}</a>
 
   <div class="app-layout" :class="{ 'app-layout--sidebar-collapsed': sidebarCollapsed }">
     <header class="topbar" :class="{ 'topbar--collapsed': sidebarCollapsed }">
       <div class="topbar-head">
-        <a class="brand" href="#" aria-label="DevKit Hub 首页" title="DevKit Hub" @click.prevent="goHome">
+        <a class="brand" href="#" :aria-label="t('app.brandHome')" title="DevKit Hub" @click.prevent="goHome">
           <span class="mark"><Braces :size="18" aria-hidden="true" /></span>
           <span>DevKit Hub</span>
         </a>
@@ -219,20 +232,31 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <nav class="nav" aria-label="主导航">
-        <a href="#" :class="{ active: !activeToolId }" title="工具" @click.prevent="goHome">
+      <nav class="nav" :aria-label="t('app.nav.aria')">
+        <a href="#" :class="{ active: !activeToolId }" :title="t('app.nav.tools')" @click.prevent="goHome">
           <span class="nav-icon"><Braces :size="15" aria-hidden="true" /></span>
-          <span>工具</span>
+          <span>{{ t("app.nav.tools") }}</span>
         </a>
-        <a v-for="tool in tools" :key="tool.id" :href="toolHref(tool.id)" :class="{ active: activeToolId === tool.id }" :title="tool.title" @click.prevent="openTool(tool.id)">
+        <a v-for="tool in localizedTools" :key="tool.id" :href="toolHref(tool.id)" :class="{ active: activeToolId === tool.id }" :title="tool.title" @click.prevent="openTool(tool.id)">
           <span class="nav-icon"><component :is="iconForTool(tool.id)" :size="15" aria-hidden="true" /></span>
           <span>{{ tool.title }}</span>
         </a>
       </nav>
 
-      <button class="theme-toggle" type="button" :aria-label="themeToggleLabel" :title="themeToggleLabel" @click="toggleTheme">
-        <component :is="themeIcon" :size="17" aria-hidden="true" />
-      </button>
+      <div class="sidebar-actions">
+        <label class="locale-switcher" :title="t('app.locale.title')">
+          <Languages :size="16" aria-hidden="true" />
+          <select v-model="selectedLocale" class="locale-select" :aria-label="t('app.locale.ariaLabel')">
+            <option v-for="nextLocale in supportedLocales" :key="nextLocale" :value="nextLocale">
+              {{ localeLabels[nextLocale] }}
+            </option>
+          </select>
+        </label>
+
+        <button class="theme-toggle" type="button" :aria-label="themeToggleLabel" :title="themeToggleLabel" @click="toggleTheme">
+          <component :is="themeIcon" :size="17" aria-hidden="true" />
+        </button>
+      </div>
     </header>
 
     <div class="app-shell">
@@ -242,25 +266,25 @@ onUnmounted(() => {
             <SurfaceCard class="command-panel">
               <div class="headline">
                 <div>
-                  <Badge tone="muted">Local-first toolkit</Badge>
-                  <h1 id="page-title">开发工具</h1>
+                  <Badge tone="muted">{{ t("app.home.badge") }}</Badge>
+                  <h1 id="page-title">{{ t("app.home.title") }}</h1>
                 </div>
-                <span class="count">{{ filteredTools.length }} / {{ tools.length }} tools</span>
+                <span class="count">{{ t("app.home.count", { shown: filteredTools.length, total: tools.length }) }}</span>
               </div>
 
               <div class="command-row">
                 <label class="searchbox">
                   <Search :size="18" aria-hidden="true" />
-                  <input ref="searchInput" v-model="query" type="search" placeholder="搜索 JSON、diff、timestamp..." autocomplete="off" />
+                  <input ref="searchInput" v-model="query" type="search" :placeholder="t('app.home.searchPlaceholder')" autocomplete="off" />
                   <span class="kbd"><Command :size="12" aria-hidden="true" />K</span>
                 </label>
                 <AppButton size="lg" @click="copyHubLink()">
                   <Copy :size="16" aria-hidden="true" />
-                  复制入口
+                  {{ t("app.home.copyEntry") }}
                 </AppButton>
               </div>
 
-              <div class="tag-row" aria-label="常用标签">
+              <div class="tag-row" :aria-label="t('app.home.tagsAria')">
                 <Badge>JSON</Badge>
                 <Badge tone="muted">Diff</Badge>
                 <Badge tone="muted">Formatter</Badge>
@@ -268,7 +292,7 @@ onUnmounted(() => {
               </div>
             </SurfaceCard>
 
-            <section class="tools-grid" aria-label="工具入口" aria-live="polite">
+            <section class="tools-grid" :aria-label="t('app.home.toolsAria')" aria-live="polite">
               <button v-for="tool in filteredTools" :key="tool.id" class="tool-card" type="button" @click="openTool(tool.id)">
                 <span class="tool-top">
                   <span class="tool-icon"><component :is="iconForTool(tool.id)" :size="20" aria-hidden="true" /></span>
@@ -279,14 +303,14 @@ onUnmounted(() => {
                   <span>{{ tool.longDescription }}</span>
                 </span>
                 <span class="tool-action">
-                  <span>打开工具</span>
+                  <span>{{ t("app.home.openTool") }}</span>
                   <ChevronRight :size="18" aria-hidden="true" />
                 </span>
               </button>
             </section>
 
             <SurfaceCard v-if="filteredTools.length === 0" class="empty-state">
-              没有匹配工具。
+              {{ t("app.home.noMatches") }}
             </SurfaceCard>
           </div>
         </section>
@@ -295,7 +319,7 @@ onUnmounted(() => {
           <div class="workspace-bar">
             <AppButton variant="outline" size="sm" @click="goHome">
               <ArrowLeft :size="15" aria-hidden="true" />
-              返回工具集合
+              {{ t("app.workspace.back") }}
             </AppButton>
             <div v-if="activeTool" class="workspace-meta">
               <span class="tool-icon small"><component :is="iconForTool(activeTool.id)" :size="16" aria-hidden="true" /></span>
@@ -303,7 +327,7 @@ onUnmounted(() => {
             </div>
             <AppButton variant="ghost" size="sm" @click="copyHubLink()">
               <Copy :size="15" aria-hidden="true" />
-              复制入口
+              {{ t("app.workspace.copyEntry") }}
             </AppButton>
           </div>
 
@@ -315,7 +339,7 @@ onUnmounted(() => {
 
   <footer class="footer">
     <PanelTop :size="16" aria-hidden="true" />
-    <span>DevKit Hub</span>
+    <span>{{ t("app.footer") }}</span>
   </footer>
 
   <ToastViewport :message="toast.message.value" :visible="toast.visible.value" />

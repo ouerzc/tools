@@ -1,61 +1,72 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { Braces, Clipboard, Minimize2, WandSparkles } from "@lucide/vue";
 
 import AppButton from "@/components/ui/AppButton.vue";
 import Badge from "@/components/ui/Badge.vue";
 import SurfaceCard from "@/components/ui/SurfaceCard.vue";
 import { useToast } from "@/composables/useToast";
+import type { Locale } from "@/i18n";
 import { formatJson, type JsonIndent } from "@/lib/json-format";
 import { copyText } from "@/lib/utils";
 
 const sampleJson =
   '{"name":"DevKit Hub","tools":[{"id":"json-diff","ready":true},{"id":"json-format","ready":true},{"id":"timestamp","ready":true}],"theme":{"surface":"warm","style":"shadcn"}}';
 
+interface StatusState {
+  key: string;
+  values?: Record<string, string | number>;
+  error: boolean;
+}
+
+const { t, locale } = useI18n({ useScope: "global" });
 const input = ref("");
 const indent = ref<JsonIndent>(2);
-const status = ref("等待输入");
-const isError = ref(false);
+const status = ref<StatusState>({ key: "common.waiting", error: false });
 const showToast = useToast();
 
+const currentLocale = computed(() => locale.value as Locale);
 const lineCount = computed(() => (input.value ? input.value.split("\n").length : 0));
 const byteSize = computed(() => new Blob([input.value]).size);
+const statusText = computed(() => t(status.value.key, status.value.values || {}));
+const isError = computed(() => status.value.error);
+const modeLabel = computed(() => (indent.value === 0 ? t("tools.jsonFormat.singleLine") : t("tools.jsonFormat.spaces", { count: indent.value })));
 
-function setStatus(message: string, error = false) {
-  status.value = message;
-  isError.value = error;
+function setStatus(key: string, error = false, values?: Record<string, string | number>) {
+  status.value = { key, error, values };
 }
 
 function parseOnly() {
   if (!input.value.trim()) {
-    setStatus("等待输入");
+    setStatus("common.waiting");
     return;
   }
 
-  const result = formatJson(input.value, indent.value);
+  const result = formatJson(input.value, indent.value, currentLocale.value);
   if (result.ok) {
-    setStatus("JSON 有效");
+    setStatus("common.jsonValid");
     return;
   }
 
-  setStatus(result.error, true);
+  status.value = { key: result.error, error: true };
 }
 
 function formatWith(nextIndent: JsonIndent) {
   if (!input.value.trim()) {
-    setStatus("等待输入");
+    setStatus("common.waiting");
     return;
   }
 
-  const result = formatJson(input.value, nextIndent);
+  const result = formatJson(input.value, nextIndent, currentLocale.value);
   if (!result.ok) {
-    setStatus(result.error, true);
+    status.value = { key: result.error, error: true };
     return;
   }
 
   input.value = result.text;
   indent.value = result.indent;
-  setStatus(result.indent === 0 ? "已压缩成单行" : `已格式化为 ${result.indent} 空格缩进`);
+  setStatus(result.indent === 0 ? "tools.jsonFormat.status.minified" : "tools.jsonFormat.status.formatted", false, { count: result.indent });
 }
 
 function fillSample() {
@@ -65,7 +76,7 @@ function fillSample() {
 
 async function copyResult() {
   const ok = await copyText(input.value);
-  showToast(ok ? "已复制结果" : "浏览器限制了复制权限");
+  showToast(ok ? t("tools.jsonFormat.copied") : t("common.copyBlocked"));
 }
 </script>
 
@@ -73,18 +84,18 @@ async function copyResult() {
   <div class="tool-workspace">
     <section class="tool-heading">
       <div>
-        <Badge tone="muted">Formatter</Badge>
-        <h1>JSON 格式化</h1>
-        <p>粘贴 JSON，选择缩进后格式化；也可以压缩成适合接口传输的单行。</p>
+        <Badge tone="muted">{{ t("tools.jsonFormat.badge") }}</Badge>
+        <h1>{{ t("tools.jsonFormat.title") }}</h1>
+        <p>{{ t("tools.jsonFormat.description") }}</p>
       </div>
       <div class="tool-heading-actions">
         <AppButton variant="outline" @click="fillSample">
           <WandSparkles :size="16" aria-hidden="true" />
-          填入示例
+          {{ t("tools.jsonFormat.fillSample") }}
         </AppButton>
         <AppButton @click="formatWith(indent)">
           <Braces :size="16" aria-hidden="true" />
-          格式化
+          {{ t("tools.jsonFormat.format") }}
         </AppButton>
       </div>
     </section>
@@ -92,8 +103,8 @@ async function copyResult() {
     <div class="formatter-layout">
       <SurfaceCard class="editor-card">
         <div class="panel-head">
-          <strong>输入 / 输出</strong>
-          <span class="status-text" :class="{ error: isError }">{{ status }}</span>
+          <strong>{{ t("tools.jsonFormat.panelTitle") }}</strong>
+          <span class="status-text" :class="{ error: isError }">{{ statusText }}</span>
         </div>
         <textarea
           v-model="input"
@@ -107,37 +118,37 @@ async function copyResult() {
       <aside class="tool-side-stack">
         <SurfaceCard tone="subtle" class="control-card">
           <div class="control-row">
-            <label for="indent">缩进</label>
+            <label for="indent">{{ t("tools.jsonFormat.indent") }}</label>
             <select id="indent" v-model="indent">
-              <option :value="2">2 空格缩进</option>
-              <option :value="4">4 空格缩进</option>
-              <option :value="0">压缩成单行</option>
+              <option :value="2">{{ t("tools.jsonFormat.twoSpaces") }}</option>
+              <option :value="4">{{ t("tools.jsonFormat.fourSpaces") }}</option>
+              <option :value="0">{{ t("tools.jsonFormat.minifyOption") }}</option>
             </select>
           </div>
           <div class="button-grid">
             <AppButton variant="outline" @click="formatWith(0)">
               <Minimize2 :size="16" aria-hidden="true" />
-              压缩
+              {{ t("tools.jsonFormat.minify") }}
             </AppButton>
             <AppButton variant="outline" @click="copyResult">
               <Clipboard :size="16" aria-hidden="true" />
-              复制结果
+              {{ t("tools.jsonFormat.copyResult") }}
             </AppButton>
           </div>
         </SurfaceCard>
 
         <SurfaceCard tone="subtle" class="metric-card">
           <div>
-            <span>行数</span>
+            <span>{{ t("tools.jsonFormat.lines") }}</span>
             <strong>{{ lineCount }}</strong>
           </div>
           <div>
-            <span>字节</span>
+            <span>{{ t("tools.jsonFormat.bytes") }}</span>
             <strong>{{ byteSize }}</strong>
           </div>
           <div>
-            <span>模式</span>
-            <strong>{{ indent === 0 ? "单行" : `${indent} 空格` }}</strong>
+            <span>{{ t("tools.jsonFormat.mode") }}</span>
+            <strong>{{ modeLabel }}</strong>
           </div>
         </SurfaceCard>
       </aside>

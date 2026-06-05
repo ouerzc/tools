@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { Clipboard, Clock, RefreshCw } from "@lucide/vue";
 
 import AppButton from "@/components/ui/AppButton.vue";
 import Badge from "@/components/ui/Badge.vue";
 import SurfaceCard from "@/components/ui/SurfaceCard.vue";
 import { useToast } from "@/composables/useToast";
+import type { Locale } from "@/i18n";
 import {
   createResult,
   formatZoneLabel,
@@ -26,39 +28,55 @@ const stamp = ref("");
 const dateInput = ref("");
 const inputZone = ref("UTC+08:00");
 const displayZone = ref("UTC+08:00");
-const status = ref("等待输入");
+const statusKey = ref("common.waiting");
 const isError = ref(false);
 const currentDate = ref<Date | null>(null);
 const result = ref<TimestampResult | null>(null);
-const liveSeconds = ref("计算中");
-const liveMilliseconds = ref("计算中");
+const liveSeconds = ref("");
+const liveMilliseconds = ref("");
 const localZone = ref("UTC+08:00");
 const showToast = useToast();
+const { t, locale } = useI18n({ useScope: "global" });
 let liveTimer = 0;
+let historyId = 0;
 
-const timezoneCompareZones = ["UTC-08:00", "UTC+00:00", "UTC+08:00", "UTC+09:00", "UTC+12:00"];
+interface ConversionHistoryItem {
+  id: string;
+  source: string;
+  seconds: string;
+  milliseconds: string;
+  zoned: string;
+  utc: string;
+  recordedAt: string;
+}
 
+const conversionHistory = ref<ConversionHistoryItem[]>([]);
+
+const currentLocale = computed(() => locale.value as Locale);
+const statusText = computed(() => t(statusKey.value));
+const liveSecondsText = computed(() => liveSeconds.value || t("tools.timestamp.status.calculating"));
+const liveMillisecondsText = computed(() => liveMilliseconds.value || t("tools.timestamp.status.calculating"));
 const resultRows = computed(() => [
-  ["seconds", "Unix 秒", result.value?.seconds || "未转换"],
-  ["milliseconds", "Unix 毫秒", result.value?.milliseconds || "未转换"],
-  ["zoned", "显示时区", result.value?.zoned || "未转换"],
-  ["utc", "UTC", result.value?.utc || "未转换"],
-  ["iso", "ISO 8601", result.value?.iso || "未转换"],
-  ["relative", "相对时间", result.value?.relative || "未转换"],
-  ["weekday", "星期", result.value?.weekday || "未转换"],
-  ["week", "周数", result.value?.week || "未转换"],
-  ["dayOfYear", "年内第几天", result.value?.dayOfYear || "未转换"]
+  ["seconds", t("tools.timestamp.rows.seconds"), result.value?.seconds || t("tools.timestamp.status.notConverted")],
+  ["milliseconds", t("tools.timestamp.rows.milliseconds"), result.value?.milliseconds || t("tools.timestamp.status.notConverted")],
+  ["zoned", t("tools.timestamp.rows.zoned"), result.value?.zoned || t("tools.timestamp.status.notConverted")],
+  ["utc", t("tools.timestamp.rows.utc"), result.value?.utc || t("tools.timestamp.status.notConverted")],
+  ["iso", t("tools.timestamp.rows.iso"), result.value?.iso || t("tools.timestamp.status.notConverted")],
+  ["relative", t("tools.timestamp.rows.relative"), result.value?.relative || t("tools.timestamp.status.notConverted")],
+  ["weekday", t("tools.timestamp.rows.weekday"), result.value?.weekday || t("tools.timestamp.status.notConverted")],
+  ["week", t("tools.timestamp.rows.week"), result.value?.week || t("tools.timestamp.status.notConverted")],
+  ["dayOfYear", t("tools.timestamp.rows.dayOfYear"), result.value?.dayOfYear || t("tools.timestamp.status.notConverted")]
 ]);
 
 const referenceDate = computed(() => currentDate.value || new Date());
-const zoneStatus = computed(() => formatZoneLabel(displayZone.value, referenceDate.value));
+const zoneStatus = computed(() => formatZoneLabel(displayZone.value, referenceDate.value, currentLocale.value));
 
 const inputZoneOptions = computed(() =>
   zones.map(([zone]) => {
     const optionDate = dateInput.value ? makeDateInZone(dateInput.value, zone) || referenceDate.value : referenceDate.value;
     return {
       zone,
-      label: formatZoneOption(zone, optionDate)
+      label: formatZoneOption(zone, optionDate, currentLocale.value)
     };
   })
 );
@@ -66,53 +84,65 @@ const inputZoneOptions = computed(() =>
 const displayZoneOptions = computed(() =>
   zones.map(([zone]) => ({
     zone,
-    label: formatZoneOption(zone, referenceDate.value)
-  }))
-);
-
-const timezoneRows = computed(() =>
-  timezoneCompareZones.map(zone => ({
-    zone,
-    label: formatZoneLabel(zone, referenceDate.value),
-    value: currentDate.value ? formatZonedDateTime(currentDate.value, zone) : "未转换"
+    label: formatZoneOption(zone, referenceDate.value, currentLocale.value)
   }))
 );
 
 const zoneOffset = computed(() => getOffsetLabel(referenceDate.value, displayZone.value));
 const activeInputMode = computed(() => (stamp.value.trim() ? "timestamp" : dateInput.value ? "date" : null));
-const localZoneLabel = computed(() => formatZoneLabel(localZone.value, referenceDate.value));
+const localZoneLabel = computed(() => formatZoneLabel(localZone.value, referenceDate.value, currentLocale.value));
 
-function setStatus(message: string, error = false) {
-  status.value = message;
+function setStatus(key: string, error = false) {
+  statusKey.value = key;
   isError.value = error;
 }
 
-function paint(date: Date) {
-  result.value = createResult(date, displayZone.value);
+function rememberConversion(createdResult: TimestampResult, source: string) {
+  conversionHistory.value = [
+    {
+      id: `${Date.now()}-${historyId++}`,
+      source,
+      seconds: createdResult.seconds,
+      milliseconds: createdResult.milliseconds,
+      zoned: createdResult.zoned,
+      utc: createdResult.utc,
+      recordedAt: formatZonedDateTime(new Date(), localZone.value)
+    },
+    ...conversionHistory.value
+  ].slice(0, 5);
+}
+
+function paint(date: Date, source = "手动转换", record = true) {
+  const createdResult = createResult(date, displayZone.value, Date.now(), currentLocale.value);
+  result.value = createdResult;
   currentDate.value = date;
-  setStatus("已转换");
+  if (record) rememberConversion(createdResult, source);
+  setStatus("tools.timestamp.status.converted");
 }
 
 function convert() {
   const raw = stamp.value.trim();
   let date: Date | null = null;
+  let source = t("tools.timestamp.source.manual");
 
   if (raw) {
     date = parseTimestamp(raw);
     if (!date) {
-      setStatus("时间戳格式无效", true);
+      setStatus("tools.timestamp.status.invalidTimestamp", true);
       return;
     }
+    source = t("tools.timestamp.source.timestamp", { value: raw });
   } else if (dateInput.value) {
     date = makeDateInZone(dateInput.value, inputZone.value);
+    source = t("tools.timestamp.source.date", { value: dateInput.value.replace("T", " "), zone: inputZone.value });
   }
 
   if (!date || Number.isNaN(date.getTime())) {
-    setStatus("请输入有效时间", true);
+    setStatus("tools.timestamp.status.invalidTime", true);
     return;
   }
 
-  paint(date);
+  paint(date, source);
 }
 
 function fillDateInput(date: Date, zone = inputZone.value) {
@@ -136,7 +166,13 @@ function setQuickDate(kind: "now" | "today" | "tomorrow" | "week") {
 
   stamp.value = "";
   fillDateInput(date);
-  paint(date);
+  const labels: Record<typeof kind, string> = {
+    now: t("tools.timestamp.quick.now"),
+    today: t("tools.timestamp.quick.today"),
+    tomorrow: t("tools.timestamp.quick.tomorrow"),
+    week: t("tools.timestamp.quick.week")
+  };
+  paint(date, labels[kind]);
 }
 
 function resetResults() {
@@ -144,7 +180,12 @@ function resetResults() {
   dateInput.value = "";
   currentDate.value = null;
   result.value = null;
-  setStatus("等待输入");
+  conversionHistory.value = [];
+  setStatus("common.waiting");
+}
+
+function repaintForDisplayZone() {
+  if (currentDate.value) paint(currentDate.value, t("tools.timestamp.source.displayZone", { zone: displayZone.value }));
 }
 
 function tickLive() {
@@ -154,10 +195,16 @@ function tickLive() {
 }
 
 async function copyValue(value: string) {
-  if (value === "未转换") return;
+  if (value === t("tools.timestamp.status.notConverted")) return;
   const ok = await copyText(value);
-  showToast(ok ? "已复制" : "浏览器限制了复制权限");
+  showToast(ok ? t("tools.timestamp.copied") : t("common.copyBlocked"));
 }
+
+watch(locale, () => {
+  if (currentDate.value) {
+    result.value = createResult(currentDate.value, displayZone.value, Date.now(), currentLocale.value);
+  }
+});
 
 onMounted(() => {
   const resolvedZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -167,7 +214,7 @@ onMounted(() => {
   displayZone.value = detectedZone;
   tickLive();
   liveTimer = window.setInterval(tickLive, 1000);
-  paint(new Date());
+  paint(new Date(), t("tools.timestamp.source.initial"), false);
 });
 
 onUnmounted(() => {
@@ -179,63 +226,63 @@ onUnmounted(() => {
   <div class="tool-workspace">
     <section class="tool-heading">
       <div>
-        <Badge tone="muted">Unix Time</Badge>
-        <h1>时间戳转换</h1>
-        <p>秒、毫秒、日期和时区互转。常用值可直接复制。</p>
+        <Badge tone="muted">{{ t("tools.timestamp.badge") }}</Badge>
+        <h1>{{ t("tools.timestamp.title") }}</h1>
+        <p>{{ t("tools.timestamp.description") }}</p>
       </div>
       <div class="tool-heading-actions">
         <AppButton variant="outline" @click="resetResults">
           <RefreshCw :size="16" aria-hidden="true" />
-          清空
+          {{ t("tools.timestamp.clear") }}
         </AppButton>
         <AppButton @click="convert">
           <Clock :size="16" aria-hidden="true" />
-          转换
+          {{ t("tools.timestamp.convert") }}
         </AppButton>
       </div>
     </section>
 
-    <section class="timestamp-grid" aria-label="时间戳转换工具">
+    <section class="timestamp-grid" :aria-label="t('tools.timestamp.gridAria')">
       <SurfaceCard>
         <div class="panel-head">
-          <strong>输入</strong>
-          <span class="status-text" :class="{ error: isError }">{{ status }}</span>
+          <strong>{{ t("tools.timestamp.input") }}</strong>
+          <span class="status-text" :class="{ error: isError }">{{ statusText }}</span>
         </div>
 
         <div class="form-grid">
-          <div class="input-mode-grid" aria-label="互斥输入方式">
+          <div class="input-mode-grid" :aria-label="t('tools.timestamp.inputModeAria')">
             <section class="input-mode-card" :class="{ active: activeInputMode === 'timestamp', muted: activeInputMode === 'date' }" aria-labelledby="timestamp-input-title">
               <div class="input-mode-head">
                 <span class="input-mode-mark">T</span>
                 <div>
-                  <strong id="timestamp-input-title">时间戳转日期</strong>
-                  <span>秒或毫秒</span>
+                  <strong id="timestamp-input-title">{{ t("tools.timestamp.timestampToDate") }}</strong>
+                  <span>{{ t("tools.timestamp.secondsOrMilliseconds") }}</span>
                 </div>
               </div>
               <label class="field">
-                <span>Unix 时间戳</span>
-                <input v-model="stamp" inputmode="numeric" placeholder="1718006400 或 1718006400000" autocomplete="off" @input="dateInput = ''" />
+                <span>{{ t("tools.timestamp.unixTimestamp") }}</span>
+                <input v-model="stamp" inputmode="numeric" :placeholder="t('tools.timestamp.timestampPlaceholder')" autocomplete="off" @input="dateInput = ''" />
               </label>
             </section>
 
             <div class="input-mode-divider" aria-hidden="true">
-              <span>或</span>
+              <span>{{ t("tools.timestamp.or") }}</span>
             </div>
 
             <section class="input-mode-card" :class="{ active: activeInputMode === 'date', muted: activeInputMode === 'timestamp' }" aria-labelledby="date-input-title">
               <div class="input-mode-head">
                 <span class="input-mode-mark">D</span>
                 <div>
-                  <strong id="date-input-title">日期转时间戳</strong>
-                  <span>日期时间 + 城市 UTC 偏移</span>
+                  <strong id="date-input-title">{{ t("tools.timestamp.dateToTimestamp") }}</strong>
+                  <span>{{ t("tools.timestamp.dateWithZone") }}</span>
                 </div>
               </div>
               <label class="field">
-                <span>日期时间</span>
+                <span>{{ t("tools.timestamp.dateTime") }}</span>
                 <input v-model="dateInput" type="datetime-local" step="1" @input="stamp = ''" />
               </label>
               <label class="field">
-                <span>输入时区</span>
+                <span>{{ t("tools.timestamp.inputZone") }}</span>
                 <select v-model="inputZone" @change="dateInput ? convert() : undefined">
                   <option v-for="zone in inputZoneOptions" :key="zone.zone" :value="zone.zone">{{ zone.label }}</option>
                 </select>
@@ -245,20 +292,20 @@ onUnmounted(() => {
 
           <div class="output-settings">
             <label class="field">
-              <span>显示时区</span>
-              <select v-model="displayZone" @change="currentDate ? paint(currentDate) : undefined">
+              <span>{{ t("tools.timestamp.displayZone") }}</span>
+              <select v-model="displayZone" @change="repaintForDisplayZone">
                 <option v-for="zone in displayZoneOptions" :key="zone.zone" :value="zone.zone">{{ zone.label }}</option>
               </select>
             </label>
           </div>
 
           <div class="quick-block">
-            <span>快捷入口</span>
+            <span>{{ t("tools.timestamp.quickActions") }}</span>
             <div class="quick-actions">
-              <AppButton variant="outline" size="sm" @click="setQuickDate('now')">当前时间</AppButton>
-              <AppButton variant="outline" size="sm" @click="setQuickDate('today')">今天 00:00</AppButton>
-              <AppButton variant="outline" size="sm" @click="setQuickDate('tomorrow')">明天 00:00</AppButton>
-              <AppButton variant="outline" size="sm" @click="setQuickDate('week')">一周后</AppButton>
+              <AppButton variant="outline" size="sm" @click="setQuickDate('now')">{{ t("tools.timestamp.quick.now") }}</AppButton>
+              <AppButton variant="outline" size="sm" @click="setQuickDate('today')">{{ t("tools.timestamp.quick.today") }}</AppButton>
+              <AppButton variant="outline" size="sm" @click="setQuickDate('tomorrow')">{{ t("tools.timestamp.quick.tomorrow") }}</AppButton>
+              <AppButton variant="outline" size="sm" @click="setQuickDate('week')">{{ t("tools.timestamp.quick.week") }}</AppButton>
             </div>
           </div>
         </div>
@@ -266,7 +313,7 @@ onUnmounted(() => {
 
       <SurfaceCard>
         <div class="panel-head">
-          <strong>转换结果</strong>
+          <strong>{{ t("tools.timestamp.resultTitle") }}</strong>
           <span class="status-text">{{ zoneStatus }}</span>
         </div>
         <div class="result-list">
@@ -275,35 +322,47 @@ onUnmounted(() => {
             <strong>{{ row[2] }}</strong>
             <button class="inline-action" type="button" @click="copyValue(row[2])">
               <Clipboard :size="14" aria-hidden="true" />
-              复制
+              {{ t("common.copy") }}
             </button>
           </div>
         </div>
       </SurfaceCard>
     </section>
 
-    <section class="side-grid" aria-label="额外时间功能">
+    <section class="side-grid" :aria-label="t('tools.timestamp.extraAria')">
       <SurfaceCard tone="subtle">
         <div class="small-card-head">
-          <h2>时区对照</h2>
+          <h2>{{ t("tools.timestamp.history.title") }}</h2>
+          <span class="count">{{ conversionHistory.length }} / 5</span>
         </div>
-        <div class="timezone-list">
-          <div v-for="row in timezoneRows" :key="row.zone" class="tz-row">
-            <span>{{ row.label }}</span>
-            <strong>{{ row.value }}</strong>
-          </div>
+        <div class="history-list">
+          <p v-if="!conversionHistory.length" class="history-empty">{{ t("tools.timestamp.history.empty") }}</p>
+          <template v-else>
+            <div v-for="item in conversionHistory" :key="item.id" class="history-row">
+              <div class="history-main">
+                <span>{{ item.source }}</span>
+                <strong>{{ item.zoned }}</strong>
+              </div>
+              <div class="history-meta">
+                <span>{{ t("tools.timestamp.history.seconds", { value: item.seconds }) }}</span>
+                <span>{{ t("tools.timestamp.history.milliseconds", { value: item.milliseconds }) }}</span>
+                <span>{{ item.utc }}</span>
+                <span>{{ t("tools.timestamp.history.recorded", { value: item.recordedAt }) }}</span>
+              </div>
+            </div>
+          </template>
         </div>
       </SurfaceCard>
 
       <SurfaceCard tone="subtle">
         <div class="small-card-head">
-          <h2>开发常用</h2>
+          <h2>{{ t("tools.timestamp.devCommon.title") }}</h2>
         </div>
         <div class="notes">
-          <div>当前秒级时间戳：<strong>{{ liveSeconds }}</strong></div>
-          <div>当前毫秒时间戳：<strong>{{ liveMilliseconds }}</strong></div>
-          <div>当前本地时区：<strong>{{ localZoneLabel }}</strong></div>
-          <div>显示 UTC 偏移：<strong>{{ zoneOffset }}</strong></div>
+          <div>{{ t("tools.timestamp.devCommon.seconds") }}<strong>{{ liveSecondsText }}</strong></div>
+          <div>{{ t("tools.timestamp.devCommon.milliseconds") }}<strong>{{ liveMillisecondsText }}</strong></div>
+          <div>{{ t("tools.timestamp.devCommon.localZone") }}<strong>{{ localZoneLabel }}</strong></div>
+          <div>{{ t("tools.timestamp.devCommon.offset") }}<strong>{{ zoneOffset }}</strong></div>
         </div>
       </SurfaceCard>
     </section>

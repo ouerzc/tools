@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, type Ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { Clipboard, GitCompareArrows, WandSparkles } from "@lucide/vue";
 
 import AppButton from "@/components/ui/AppButton.vue";
 import Badge from "@/components/ui/Badge.vue";
 import SurfaceCard from "@/components/ui/SurfaceCard.vue";
 import { useToast } from "@/composables/useToast";
+import type { Locale } from "@/i18n";
 import {
   buildDiffViewModel,
   formatDiffLine,
@@ -18,36 +20,40 @@ import {
 import { copyText } from "@/lib/utils";
 
 interface InputStatus {
-  message: string;
+  key: string;
   error: boolean;
 }
 
+const { t, locale } = useI18n({ useScope: "global" });
 const leftInput = ref("");
 const rightInput = ref("");
-const leftStatus = ref<InputStatus>({ message: "等待输入", error: false });
-const rightStatus = ref<InputStatus>({ message: "等待输入", error: false });
+const leftStatus = ref<InputStatus>({ key: "common.waiting", error: false });
+const rightStatus = ref<InputStatus>({ key: "common.waiting", error: false });
 const model = ref<DiffViewModel | null>(null);
-const resultMessage = ref("粘贴两段 JSON 后点击比较。");
+const resultMessageKey = ref("tools.jsonDiff.initialResult");
 const showToast = useToast();
 
+const currentLocale = computed(() => locale.value as Locale);
+const leftStatusText = computed(() => t(leftStatus.value.key));
+const rightStatusText = computed(() => t(rightStatus.value.key));
 const resultText = computed(() => {
-  if (!model.value) return resultMessage.value;
-  if (model.value.changes.length === 0) return "两个 JSON 没有字段级差异。";
+  if (!model.value) return t(resultMessageKey.value);
+  if (model.value.changes.length === 0) return t("tools.jsonDiff.noFieldDiff");
   return model.value.changes.map(formatDiffLine).join("\n");
 });
 
-function setStatus(target: Ref<InputStatus>, message: string, error = false) {
-  target.value = { message, error };
+function setStatus(target: Ref<InputStatus>, key: string, error = false) {
+  target.value = { key, error };
 }
 
 function parseInput(raw: string, status: Ref<InputStatus>) {
   if (!raw.trim()) {
-    setStatus(status, "等待输入");
+    setStatus(status, "common.waiting");
     return { ok: false, value: undefined, error: "", empty: true };
   }
 
-  const parsed = parseJson(raw);
-  setStatus(status, parsed.ok ? "JSON 有效" : parsed.error, !parsed.ok);
+  const parsed = parseJson(raw, currentLocale.value);
+  setStatus(status, parsed.ok ? "common.jsonValid" : parsed.error, !parsed.ok);
   return { ...parsed, empty: false };
 }
 
@@ -64,18 +70,18 @@ function formatSide(side: "left" | "right") {
   const status = side === "left" ? leftStatus : rightStatus;
 
   if (!source.value.trim()) {
-    setStatus(status, "等待输入");
+    setStatus(status, "common.waiting");
     return;
   }
 
-  const formatted = formatParsedJson(source.value, 2);
+  const formatted = formatParsedJson(source.value, 2, currentLocale.value);
   if (!formatted.ok) {
     setStatus(status, formatted.error, true);
     return;
   }
 
   source.value = formatted.text;
-  setStatus(status, "已格式化显示");
+  setStatus(status, "common.formatted");
 }
 
 function compare() {
@@ -83,17 +89,17 @@ function compare() {
   const right = parseInput(rightInput.value, rightStatus);
   if (!left.ok || !right.ok) {
     model.value = null;
-    resultMessage.value = "请先修正输入中的 JSON 错误。";
+    resultMessageKey.value = "tools.jsonDiff.fixJsonErrors";
     return;
   }
 
   leftInput.value = formatJsonValue(left.value, 2);
   rightInput.value = formatJsonValue(right.value, 2);
-  setStatus(leftStatus, "已格式化显示");
-  setStatus(rightStatus, "已格式化显示");
+  setStatus(leftStatus, "common.formatted");
+  setStatus(rightStatus, "common.formatted");
 
   model.value = buildDiffViewModel(left.value, right.value);
-  resultMessage.value = model.value.changes.length === 0 ? "两个 JSON 没有字段级差异。" : "";
+  resultMessageKey.value = model.value.changes.length === 0 ? "tools.jsonDiff.noFieldDiff" : "";
 }
 
 function fillSample() {
@@ -110,7 +116,7 @@ function detailValue(item: DiffItem) {
 
 async function copyResult() {
   const ok = await copyText(resultText.value.trim());
-  showToast(ok ? "已复制差异" : "浏览器限制了复制权限");
+  showToast(ok ? t("tools.jsonDiff.copied") : t("common.copyBlocked"));
 }
 </script>
 
@@ -118,29 +124,29 @@ async function copyResult() {
   <div class="tool-workspace">
     <section class="tool-heading">
       <div>
-        <Badge tone="muted">Semantic Diff</Badge>
-        <h1>JSON Diff</h1>
-        <p>比较两个 JSON 值，按字段路径输出新增、删除和变更。</p>
+        <Badge tone="muted">{{ t("tools.jsonDiff.badge") }}</Badge>
+        <h1>{{ t("tools.jsonDiff.title") }}</h1>
+        <p>{{ t("tools.jsonDiff.description") }}</p>
       </div>
       <div class="tool-heading-actions">
         <AppButton variant="outline" @click="fillSample">
           <WandSparkles :size="16" aria-hidden="true" />
-          填入示例
+          {{ t("tools.jsonDiff.fillSample") }}
         </AppButton>
         <AppButton @click="compare">
           <GitCompareArrows :size="16" aria-hidden="true" />
-          比较
+          {{ t("tools.jsonDiff.compare") }}
         </AppButton>
       </div>
     </section>
 
-    <section class="diff-input-grid" aria-label="JSON 输入">
+    <section class="diff-input-grid" :aria-label="t('tools.jsonDiff.inputAria')">
       <SurfaceCard class="editor-card">
         <div class="panel-head">
-          <label class="panel-title" for="leftJson">左侧 JSON</label>
+          <label class="panel-title" for="leftJson">{{ t("tools.jsonDiff.leftJson") }}</label>
           <span class="panel-actions">
-            <span class="status-text" :class="{ error: leftStatus.error }">{{ leftStatus.message }}</span>
-            <button class="inline-action" type="button" @click="formatSide('left')">格式化</button>
+            <span class="status-text" :class="{ error: leftStatus.error }">{{ leftStatusText }}</span>
+            <button class="inline-action" type="button" @click="formatSide('left')">{{ t("tools.jsonDiff.format") }}</button>
           </span>
         </div>
         <textarea
@@ -155,10 +161,10 @@ async function copyResult() {
 
       <SurfaceCard class="editor-card">
         <div class="panel-head">
-          <label class="panel-title" for="rightJson">右侧 JSON</label>
+          <label class="panel-title" for="rightJson">{{ t("tools.jsonDiff.rightJson") }}</label>
           <span class="panel-actions">
-            <span class="status-text" :class="{ error: rightStatus.error }">{{ rightStatus.message }}</span>
-            <button class="inline-action" type="button" @click="formatSide('right')">格式化</button>
+            <span class="status-text" :class="{ error: rightStatus.error }">{{ rightStatusText }}</span>
+            <button class="inline-action" type="button" @click="formatSide('right')">{{ t("tools.jsonDiff.format") }}</button>
           </span>
         </div>
         <textarea
@@ -175,28 +181,28 @@ async function copyResult() {
     <SurfaceCard tone="code" class="result-panel" aria-live="polite">
       <div class="result-head">
         <div>
-          <strong>差异结果</strong>
-          <p v-if="model">总差异 {{ model.summary.total }}，新增 {{ model.summary.added }}，删除 {{ model.summary.removed }}，变更 {{ model.summary.changed }}</p>
+          <strong>{{ t("tools.jsonDiff.resultTitle") }}</strong>
+          <p v-if="model">{{ t("tools.jsonDiff.summary", model.summary) }}</p>
         </div>
         <AppButton variant="soft" size="sm" @click="copyResult">
           <Clipboard :size="15" aria-hidden="true" />
-          复制结果
+          {{ t("tools.jsonDiff.copyResult") }}
         </AppButton>
       </div>
 
-      <p v-if="!model || model.changes.length === 0" class="result-empty">{{ resultMessage }}</p>
+      <p v-if="!model || model.changes.length === 0" class="result-empty">{{ resultText }}</p>
 
       <div v-else class="semantic-diff">
         <div class="diff-summary">
-          <span class="diff-stat">总差异 {{ model.summary.total }}</span>
-          <span class="diff-stat added">新增 {{ model.summary.added }}</span>
-          <span class="diff-stat removed">删除 {{ model.summary.removed }}</span>
-          <span class="diff-stat changed">变更 {{ model.summary.changed }}</span>
+          <span class="diff-stat">{{ t("tools.jsonDiff.total", { count: model.summary.total }) }}</span>
+          <span class="diff-stat added">{{ t("tools.jsonDiff.added", { count: model.summary.added }) }}</span>
+          <span class="diff-stat removed">{{ t("tools.jsonDiff.removed", { count: model.summary.removed }) }}</span>
+          <span class="diff-stat changed">{{ t("tools.jsonDiff.changed", { count: model.summary.changed }) }}</span>
         </div>
 
         <div class="diff-code-grid">
           <section class="diff-code-pane">
-            <strong class="diff-code-title">左侧格式化 JSON</strong>
+            <strong class="diff-code-title">{{ t("tools.jsonDiff.leftFormatted") }}</strong>
             <div class="json-code">
               <span v-for="line in model.leftLines" :key="`left-${line.number}`" class="json-code-line" :class="line.kind" :data-path="line.kind ? line.path : undefined">
                 <span class="json-code-number">{{ line.number }}</span>
@@ -206,7 +212,7 @@ async function copyResult() {
           </section>
 
           <section class="diff-code-pane">
-            <strong class="diff-code-title">右侧格式化 JSON</strong>
+            <strong class="diff-code-title">{{ t("tools.jsonDiff.rightFormatted") }}</strong>
             <div class="json-code">
               <span v-for="line in model.rightLines" :key="`right-${line.number}`" class="json-code-line" :class="line.kind" :data-path="line.kind ? line.path : undefined">
                 <span class="json-code-number">{{ line.number }}</span>

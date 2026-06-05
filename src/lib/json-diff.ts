@@ -34,6 +34,10 @@ export interface DiffViewModel {
   rightLines: JsonLine[];
 }
 
+function fallbackParseError(locale: string) {
+  return locale === "en-US" ? "JSON parse failed" : "JSON 解析失败";
+}
+
 function describeValue(value: unknown) {
   const json = JSON.stringify(value);
   return typeof json === "undefined" ? String(value) : json;
@@ -125,16 +129,16 @@ export function diffJson(leftValue: unknown, rightValue: unknown) {
   return result;
 }
 
-export function parseJson(raw: string): ParseJsonResult {
+export function parseJson(raw: string, locale = "zh-CN"): ParseJsonResult {
   try {
     return { ok: true, value: JSON.parse(raw) as unknown, error: "" };
   } catch (error) {
-    return { ok: false, value: undefined, error: error instanceof Error ? error.message : "JSON 解析失败" };
+    return { ok: false, value: undefined, error: error instanceof Error ? error.message : fallbackParseError(locale) };
   }
 }
 
-export function formatParsedJson(raw: string, indent: unknown) {
-  const parsed = parseJson(raw);
+export function formatParsedJson(raw: string, indent: unknown, locale = "zh-CN") {
+  const parsed = parseJson(raw, locale);
   if (!parsed.ok) return { ...parsed, text: "" };
   return {
     ok: true,

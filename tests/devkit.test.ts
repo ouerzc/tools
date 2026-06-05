@@ -7,6 +7,7 @@ import { createApp, nextTick, type App as VueApp } from "vue";
 import { afterEach, beforeEach, describe, test, vi } from "vitest";
 
 import App from "../src/App.vue";
+import { i18n, initializeAppLocale } from "../src/i18n";
 import { diffJson, formatJsonValue, buildDiffViewModel } from "../src/lib/json-diff";
 import { formatJson } from "../src/lib/json-format";
 import { createResult, formatInZone, formatZoneLabel, formatZoneOption, getOffsetLabel, getOffsetTimeZoneId, makeDateInZone, parseTimestamp, zones } from "../src/lib/timestamp";
@@ -57,8 +58,28 @@ function mountApplication() {
   const target = document.createElement("div");
   document.body.append(target);
   mountedApp = createApp(App);
+  initializeAppLocale();
+  mountedApp.use(i18n);
   mountedApp.mount(target);
   return target;
+}
+
+function setBrowserLanguages(languages: readonly string[]) {
+  Object.defineProperty(window.navigator, "languages", {
+    configurable: true,
+    value: languages
+  });
+  Object.defineProperty(window.navigator, "language", {
+    configurable: true,
+    value: languages[0] || "zh-CN"
+  });
+}
+
+function setClipboardWriter(writeText: (text: string) => Promise<void>) {
+  Object.defineProperty(window.navigator, "clipboard", {
+    configurable: true,
+    value: { writeText }
+  });
 }
 
 beforeEach(() => {
@@ -66,6 +87,9 @@ beforeEach(() => {
     configurable: true,
     value: createMemoryStorage()
   });
+  document.documentElement.lang = "";
+  document.title = "";
+  setBrowserLanguages(["zh-CN"]);
 });
 
 afterEach(() => {
@@ -95,6 +119,84 @@ describe("project structure", () => {
 
   test("tool registry keeps stable legacy ids", () => {
     assert.deepEqual(tools.map(tool => tool.id), ["json-diff", "json-format", "timestamp"]);
+  });
+});
+
+describe("i18n", () => {
+  test("uses stored locale before browser language and updates document metadata", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    setBrowserLanguages(["zh-CN"]);
+    window.localStorage.setItem("devkit-locale", "en-US");
+
+    mountApplication();
+    await nextTick();
+
+    assert.equal(document.documentElement.lang, "en-US");
+    assert.equal(document.title, "DevKit Hub | Online Developer Toolkit");
+    assert.match(document.body.textContent || "", /Developer Tools/);
+    assert.doesNotMatch(document.body.textContent || "", /开发工具/);
+  });
+
+  test("uses browser English locale when no stored locale exists", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    setBrowserLanguages(["en-US", "zh-CN"]);
+
+    mountApplication();
+    await nextTick();
+
+    assert.equal(document.documentElement.lang, "en-US");
+    assert.match(document.body.textContent || "", /Developer Tools/);
+  });
+
+  test("language switch updates visible copy, storage, document lang, and toast text", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    setClipboardWriter(vi.fn(async () => undefined));
+
+    mountApplication();
+    await nextTick();
+
+    assert.equal(document.documentElement.lang, "zh-CN");
+    assert.match(document.body.textContent || "", /开发工具/);
+
+    const languageSelect = document.querySelector<HTMLSelectElement>(".locale-select");
+    assert.ok(languageSelect, "language selector should be available");
+
+    languageSelect.value = "en-US";
+    languageSelect.dispatchEvent(new Event("change"));
+    await nextTick();
+
+    assert.equal(window.localStorage.getItem("devkit-locale"), "en-US");
+    assert.equal(document.documentElement.lang, "en-US");
+    assert.match(document.body.textContent || "", /Developer Tools/);
+
+    const copyButton = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.includes("Copy entry"));
+    assert.ok(copyButton, "copy button should use English copy");
+
+    copyButton.click();
+    await new Promise(resolve => window.setTimeout(resolve, 0));
+    await nextTick();
+
+    assert.match(document.body.textContent || "", /Entry copied/);
+  });
+
+  test("English search matches localized tool metadata", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    setBrowserLanguages(["en-US"]);
+
+    mountApplication();
+    await nextTick();
+
+    const search = document.querySelector<HTMLInputElement>('input[type="search"]');
+    assert.ok(search, "search input should be available");
+
+    search.value = "readable indentation";
+    search.dispatchEvent(new Event("input"));
+    await nextTick();
+
+    const toolsGrid = document.querySelector<HTMLElement>(".tools-grid");
+    assert.ok(toolsGrid, "tools grid should be available");
+    assert.match(toolsGrid.textContent || "", /JSON Formatter/);
+    assert.doesNotMatch(toolsGrid.textContent || "", /Timestamp Converter/);
   });
 });
 
@@ -170,6 +272,18 @@ describe("sidebar", () => {
     assert.match(collapsedBrand, /height:\s*42px;/);
     assert.match(collapsedBrand, /gap:\s*0;/);
   });
+
+  test("language selector and theme toggle share one aligned action row", () => {
+    const sidebarActions = cssBlock(".sidebar-actions");
+    const localeSwitcher = cssBlock(".locale-switcher");
+    const themeToggle = cssBlock(".theme-toggle");
+
+    assert.match(sidebarActions, /display:\s*flex;/);
+    assert.match(sidebarActions, /align-items:\s*center;/);
+    assert.match(sidebarActions, /gap:\s*10px;/);
+    assert.match(localeSwitcher, /flex:\s*1 1 auto;/);
+    assert.match(themeToggle, /flex:\s*0 0 42px;/);
+  });
 });
 
 describe("timestamp tool UI", () => {
@@ -180,7 +294,7 @@ describe("timestamp tool UI", () => {
     mountApplication();
     await nextTick();
 
-    const selects = Array.from(document.querySelectorAll<HTMLSelectElement>("select"));
+    const selects = Array.from(document.querySelectorAll<HTMLSelectElement>(".timestamp-grid select"));
     assert.equal(selects.length, 2);
 
     selects.forEach(select => {
@@ -190,6 +304,38 @@ describe("timestamp tool UI", () => {
       assert.equal(optionIds.has("UTC+00:00"), true);
       assert.equal(optionIds.has("UTC+12:00"), true);
     });
+  });
+
+  test("shows the five most recent conversion history records instead of timezone compare rows", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    window.location.hash = "#timestamp";
+
+    mountApplication();
+    await nextTick();
+
+    assert.match(document.body.textContent || "", /转换历史/);
+    assert.doesNotMatch(document.body.textContent || "", /时区对照/);
+    assert.equal(document.querySelectorAll(".history-row").length, 0);
+
+    const timestampInput = document.querySelector<HTMLInputElement>('input[placeholder="1718006400 或 1718006400000"]');
+    const convertButton = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.includes("转换"));
+    assert.ok(timestampInput, "timestamp input should be available");
+    assert.ok(convertButton, "convert button should be available");
+
+    for (let index = 0; index < 6; index += 1) {
+      timestampInput.value = String(1718006400 + index);
+      timestampInput.dispatchEvent(new Event("input"));
+      await nextTick();
+
+      convertButton.click();
+      await nextTick();
+    }
+
+    const rows = Array.from(document.querySelectorAll<HTMLElement>(".history-row"));
+    assert.equal(rows.length, 5);
+    assert.match(rows[0].textContent || "", /1718006405/);
+    assert.match(rows[4].textContent || "", /1718006401/);
+    assert.doesNotMatch(document.body.textContent || "", /1718006400/);
   });
 });
 
@@ -280,6 +426,20 @@ describe("timestamp helpers", () => {
     assert.equal(formatZoneOption("UTC+00:00", new Date("2024-06-10T08:00:00.000Z")), "伦敦 / 都柏林 / 里斯本 / 阿克拉 UTC+00:00");
     assert.equal(getOffsetTimeZoneId(new Date("2024-06-10T08:00:00.000Z"), "Asia/Shanghai"), "UTC+08:00");
     assert.equal(makeDateInZone("2024-06-10T16:00:00", "UTC+08:00")?.toISOString(), "2024-06-10T08:00:00.000Z");
+  });
+
+  test("formats timestamp display helpers in English", () => {
+    const date = new Date("2024-06-10T08:00:00.000Z");
+
+    assert.equal(formatInZone(date, "UTC+08:00", "en-US"), "2024-06-10 16:00:00 Shanghai / Hong Kong / Singapore / Taipei UTC+08:00");
+    assert.equal(formatZoneLabel("UTC-08:00", date, "en-US"), "Los Angeles / Vancouver / Tijuana UTC-08:00");
+
+    const result = createResult(date, "UTC+08:00", date.getTime(), "en-US");
+    assert.equal(result.zoned, "2024-06-10 16:00:00 Shanghai / Hong Kong / Singapore / Taipei UTC+08:00");
+    assert.equal(result.relative, "just now");
+    assert.equal(result.weekday, "Monday");
+    assert.equal(result.week, "ISO week 24");
+    assert.equal(result.dayOfYear, "day 162");
   });
 
   test("create result preserves copied timestamp values", () => {

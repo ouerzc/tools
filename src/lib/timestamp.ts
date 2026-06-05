@@ -1,29 +1,33 @@
+import type { Locale } from "@/i18n";
+
+const defaultTimestampLocale: Locale = "zh-CN";
+
 const offsetZoneDefinitions = [
-  [-12, ["贝克岛", "豪兰岛"]],
-  [-11, ["帕果帕果", "纽埃", "中途岛"]],
-  [-10, ["檀香山", "塔希提", "拉罗汤加"]],
-  [-9, ["安克雷奇", "朱诺", "雅库塔特"]],
-  [-8, ["洛杉矶", "温哥华", "蒂华纳"]],
-  [-7, ["丹佛", "凤凰城", "埃德蒙顿"]],
-  [-6, ["芝加哥", "墨西哥城", "温尼伯"]],
-  [-5, ["纽约", "多伦多", "利马", "波哥大"]],
-  [-4, ["哈利法克斯", "加拉加斯", "拉巴斯", "圣地亚哥"]],
-  [-3, ["圣保罗", "蒙得维的亚", "布宜诺斯艾利斯"]],
-  [-2, ["南乔治亚", "费尔南多-迪诺罗尼亚"]],
-  [-1, ["亚速尔", "佛得角", "斯科斯比松"]],
-  [0, ["伦敦", "都柏林", "里斯本", "阿克拉"]],
-  [1, ["柏林", "巴黎", "罗马", "拉各斯"]],
-  [2, ["开罗", "雅典", "约翰内斯堡", "赫尔辛基"]],
-  [3, ["莫斯科", "伊斯坦布尔", "利雅得", "内罗毕"]],
-  [4, ["迪拜", "马斯喀特", "巴库", "第比利斯"]],
-  [5, ["卡拉奇", "塔什干", "叶卡捷琳堡", "马尔代夫"]],
-  [6, ["达卡", "阿拉木图", "廷布", "鄂木斯克"]],
-  [7, ["曼谷", "雅加达", "西贡"]],
-  [8, ["上海", "香港", "新加坡", "台北"]],
-  [9, ["东京", "首尔", "雅库茨克"]],
-  [10, ["悉尼", "墨尔本", "布里斯班", "关岛"]],
-  [11, ["努美阿", "瓜达尔卡纳尔", "马加丹"]],
-  [12, ["奥克兰", "斐济", "堪察加"]]
+  { offsetHours: -12, cities: { "zh-CN": ["贝克岛", "豪兰岛"], "en-US": ["Baker Island", "Howland Island"] } },
+  { offsetHours: -11, cities: { "zh-CN": ["帕果帕果", "纽埃", "中途岛"], "en-US": ["Pago Pago", "Niue", "Midway"] } },
+  { offsetHours: -10, cities: { "zh-CN": ["檀香山", "塔希提", "拉罗汤加"], "en-US": ["Honolulu", "Tahiti", "Rarotonga"] } },
+  { offsetHours: -9, cities: { "zh-CN": ["安克雷奇", "朱诺", "雅库塔特"], "en-US": ["Anchorage", "Juneau", "Yakutat"] } },
+  { offsetHours: -8, cities: { "zh-CN": ["洛杉矶", "温哥华", "蒂华纳"], "en-US": ["Los Angeles", "Vancouver", "Tijuana"] } },
+  { offsetHours: -7, cities: { "zh-CN": ["丹佛", "凤凰城", "埃德蒙顿"], "en-US": ["Denver", "Phoenix", "Edmonton"] } },
+  { offsetHours: -6, cities: { "zh-CN": ["芝加哥", "墨西哥城", "温尼伯"], "en-US": ["Chicago", "Mexico City", "Winnipeg"] } },
+  { offsetHours: -5, cities: { "zh-CN": ["纽约", "多伦多", "利马", "波哥大"], "en-US": ["New York", "Toronto", "Lima", "Bogota"] } },
+  { offsetHours: -4, cities: { "zh-CN": ["哈利法克斯", "加拉加斯", "拉巴斯", "圣地亚哥"], "en-US": ["Halifax", "Caracas", "La Paz", "Santiago"] } },
+  { offsetHours: -3, cities: { "zh-CN": ["圣保罗", "蒙得维的亚", "布宜诺斯艾利斯"], "en-US": ["Sao Paulo", "Montevideo", "Buenos Aires"] } },
+  { offsetHours: -2, cities: { "zh-CN": ["南乔治亚", "费尔南多-迪诺罗尼亚"], "en-US": ["South Georgia", "Fernando de Noronha"] } },
+  { offsetHours: -1, cities: { "zh-CN": ["亚速尔", "佛得角", "斯科斯比松"], "en-US": ["Azores", "Cape Verde", "Scoresbysund"] } },
+  { offsetHours: 0, cities: { "zh-CN": ["伦敦", "都柏林", "里斯本", "阿克拉"], "en-US": ["London", "Dublin", "Lisbon", "Accra"] } },
+  { offsetHours: 1, cities: { "zh-CN": ["柏林", "巴黎", "罗马", "拉各斯"], "en-US": ["Berlin", "Paris", "Rome", "Lagos"] } },
+  { offsetHours: 2, cities: { "zh-CN": ["开罗", "雅典", "约翰内斯堡", "赫尔辛基"], "en-US": ["Cairo", "Athens", "Johannesburg", "Helsinki"] } },
+  { offsetHours: 3, cities: { "zh-CN": ["莫斯科", "伊斯坦布尔", "利雅得", "内罗毕"], "en-US": ["Moscow", "Istanbul", "Riyadh", "Nairobi"] } },
+  { offsetHours: 4, cities: { "zh-CN": ["迪拜", "马斯喀特", "巴库", "第比利斯"], "en-US": ["Dubai", "Muscat", "Baku", "Tbilisi"] } },
+  { offsetHours: 5, cities: { "zh-CN": ["卡拉奇", "塔什干", "叶卡捷琳堡", "马尔代夫"], "en-US": ["Karachi", "Tashkent", "Yekaterinburg", "Maldives"] } },
+  { offsetHours: 6, cities: { "zh-CN": ["达卡", "阿拉木图", "廷布", "鄂木斯克"], "en-US": ["Dhaka", "Almaty", "Thimphu", "Omsk"] } },
+  { offsetHours: 7, cities: { "zh-CN": ["曼谷", "雅加达", "西贡"], "en-US": ["Bangkok", "Jakarta", "Ho Chi Minh City"] } },
+  { offsetHours: 8, cities: { "zh-CN": ["上海", "香港", "新加坡", "台北"], "en-US": ["Shanghai", "Hong Kong", "Singapore", "Taipei"] } },
+  { offsetHours: 9, cities: { "zh-CN": ["东京", "首尔", "雅库茨克"], "en-US": ["Tokyo", "Seoul", "Yakutsk"] } },
+  { offsetHours: 10, cities: { "zh-CN": ["悉尼", "墨尔本", "布里斯班", "关岛"], "en-US": ["Sydney", "Melbourne", "Brisbane", "Guam"] } },
+  { offsetHours: 11, cities: { "zh-CN": ["努美阿", "瓜达尔卡纳尔", "马加丹"], "en-US": ["Noumea", "Guadalcanal", "Magadan"] } },
+  { offsetHours: 12, cities: { "zh-CN": ["奥克兰", "斐济", "堪察加"], "en-US": ["Auckland", "Fiji", "Kamchatka"] } }
 ] as const;
 
 function formatOffsetZoneId(offsetHours: number) {
@@ -31,9 +35,13 @@ function formatOffsetZoneId(offsetHours: number) {
   return `UTC${sign}${pad2(Math.abs(offsetHours))}:00`;
 }
 
-export const zones = offsetZoneDefinitions.map(([offsetHours, cities]) => [formatOffsetZoneId(offsetHours), cities] as const);
+export const zones = offsetZoneDefinitions.map(({ offsetHours, cities }) => [formatOffsetZoneId(offsetHours), cities["zh-CN"]] as const);
 
-const zoneCityMap = new Map<string, readonly string[]>(zones.map(([zone, cities]) => [zone, cities]));
+const zoneCityMap = new Map(offsetZoneDefinitions.map(({ offsetHours, cities }) => [formatOffsetZoneId(offsetHours), cities]));
+
+function normalizeTimestampLocale(locale: Locale | string = defaultTimestampLocale): Locale {
+  return locale === "en-US" ? "en-US" : "zh-CN";
+}
 
 export interface ZonedParts {
   year: number;
@@ -141,25 +149,26 @@ export function getOffsetTimeZoneId(date: Date, timeZone: string) {
   return zones.some(([zone]) => zone === offset) ? offset : "UTC+00:00";
 }
 
-export function getZoneCity(timeZone: string) {
+export function getZoneCity(timeZone: string, locale: Locale | string = defaultTimestampLocale) {
+  const resolvedLocale = normalizeTimestampLocale(locale);
   if (timeZone === "UTC") return "UTC";
   const offsetMinutes = parseOffsetMinutes(timeZone);
-  if (offsetMinutes !== null) return zoneCityMap.get(formatOffsetLabel(offsetMinutes))?.join(" / ") || formatOffsetLabel(offsetMinutes);
-  return zoneCityMap.get(timeZone)?.join(" / ") || timeZone.split("/").pop()?.replaceAll("_", " ") || timeZone;
+  if (offsetMinutes !== null) return zoneCityMap.get(formatOffsetLabel(offsetMinutes))?.[resolvedLocale].join(" / ") || formatOffsetLabel(offsetMinutes);
+  return zoneCityMap.get(timeZone)?.[resolvedLocale].join(" / ") || timeZone.split("/").pop()?.replaceAll("_", " ") || timeZone;
 }
 
-export function formatZoneLabel(timeZone: string, date = new Date()) {
+export function formatZoneLabel(timeZone: string, date = new Date(), locale: Locale | string = defaultTimestampLocale) {
   const offset = getOffsetLabel(date, timeZone);
-  const city = getZoneCity(timeZone);
+  const city = getZoneCity(timeZone, locale);
   return city === "UTC" ? offset : `${city} ${offset}`;
 }
 
-export function formatZoneOption(timeZone: string, date = new Date()) {
-  return formatZoneLabel(timeZone, date);
+export function formatZoneOption(timeZone: string, date = new Date(), locale: Locale | string = defaultTimestampLocale) {
+  return formatZoneLabel(timeZone, date, locale);
 }
 
-export function formatInZone(date: Date, timeZone: string) {
-  return `${formatZonedDateTime(date, timeZone)} ${formatZoneLabel(timeZone, date)}`;
+export function formatInZone(date: Date, timeZone: string, locale: Locale | string = defaultTimestampLocale) {
+  return `${formatZonedDateTime(date, timeZone)} ${formatZoneLabel(timeZone, date, locale)}`;
 }
 
 export function makeDateInZone(dateTimeValue: string, timeZone: string) {
@@ -207,40 +216,75 @@ export function getDayOfYear(date: Date, timeZone: string) {
   return Math.floor((today - start) / 86400000) + 1;
 }
 
-export function getWeekday(date: Date, timeZone: string) {
+const weekdayNames: Record<Locale, string[]> = {
+  "zh-CN": ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"],
+  "en-US": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+};
+
+export function getWeekday(date: Date, timeZone: string, locale: Locale | string = defaultTimestampLocale) {
   const parts = getZonedParts(date, timeZone);
-  const weekdays = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
-  return weekdays[new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay()];
+  return weekdayNames[normalizeTimestampLocale(locale)][new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay()];
 }
 
-export function getRelative(date: Date, now = Date.now()) {
+const relativeUnits: [key: "year" | "month" | "day" | "hour" | "minute" | "second", seconds: number][] = [
+  ["year", 31536000],
+  ["month", 2592000],
+  ["day", 86400],
+  ["hour", 3600],
+  ["minute", 60],
+  ["second", 1]
+];
+
+const chineseRelativeUnits: Record<(typeof relativeUnits)[number][0], string> = {
+  year: "年",
+  month: "月",
+  day: "天",
+  hour: "小时",
+  minute: "分钟",
+  second: "秒"
+};
+
+const englishRelativeUnits: Record<(typeof relativeUnits)[number][0], string> = {
+  year: "year",
+  month: "month",
+  day: "day",
+  hour: "hour",
+  minute: "minute",
+  second: "second"
+};
+
+export function getRelative(date: Date, now = Date.now(), locale: Locale | string = defaultTimestampLocale) {
+  const resolvedLocale = normalizeTimestampLocale(locale);
   const seconds = Math.round((date.getTime() - now) / 1000);
   const abs = Math.abs(seconds);
-  const units: [string, number][] = [
-    ["年", 31536000],
-    ["月", 2592000],
-    ["天", 86400],
-    ["小时", 3600],
-    ["分钟", 60],
-    ["秒", 1]
-  ];
-  const picked = units.find(unit => abs >= unit[1]) || ["秒", 1];
+  const picked = relativeUnits.find(unit => abs >= unit[1]) || ["second", 1];
   const amount = Math.max(1, Math.round(abs / picked[1]));
-  if (abs < 2) return "刚刚";
-  return seconds >= 0 ? `${amount} ${picked[0]}后` : `${amount} ${picked[0]}前`;
+  if (abs < 2) return resolvedLocale === "en-US" ? "just now" : "刚刚";
+
+  if (resolvedLocale === "en-US") {
+    const baseUnit = englishRelativeUnits[picked[0]];
+    const unit = amount === 1 ? baseUnit : `${baseUnit}s`;
+    return seconds >= 0 ? `in ${amount} ${unit}` : `${amount} ${unit} ago`;
+  }
+
+  const unit = chineseRelativeUnits[picked[0]];
+  return seconds >= 0 ? `${amount} ${unit}后` : `${amount} ${unit}前`;
 }
 
-export function createResult(date: Date, zone: string, now = Date.now()): TimestampResult {
+export function createResult(date: Date, zone: string, now = Date.now(), locale: Locale | string = defaultTimestampLocale): TimestampResult {
+  const resolvedLocale = normalizeTimestampLocale(locale);
   const ms = date.getTime();
+  const isoWeek = getIsoWeek(date, zone);
+  const dayOfYear = getDayOfYear(date, zone);
   return {
     seconds: String(Math.floor(ms / 1000)),
     milliseconds: String(ms),
-    zoned: formatInZone(date, zone),
-    utc: formatInZone(date, "UTC"),
+    zoned: formatInZone(date, zone, resolvedLocale),
+    utc: formatInZone(date, "UTC", resolvedLocale),
     iso: date.toISOString(),
-    relative: getRelative(date, now),
-    weekday: getWeekday(date, zone),
-    week: `ISO 第 ${getIsoWeek(date, zone)} 周`,
-    dayOfYear: `第 ${getDayOfYear(date, zone)} 天`
+    relative: getRelative(date, now, resolvedLocale),
+    weekday: getWeekday(date, zone, resolvedLocale),
+    week: resolvedLocale === "en-US" ? `ISO week ${isoWeek}` : `ISO 第 ${isoWeek} 周`,
+    dayOfYear: resolvedLocale === "en-US" ? `day ${dayOfYear}` : `第 ${dayOfYear} 天`
   };
 }

@@ -1,5 +1,16 @@
 export type ToolId = "json-diff" | "json-format" | "timestamp";
 
+export interface ToolDefinition {
+  id: ToolId;
+  titleKey: string;
+  descriptionKey: string;
+  longDescriptionKey: string;
+  kindKey: string;
+  keywordsKey: string;
+  shortcut: string;
+  tags: string[];
+}
+
 export interface ToolMeta {
   id: ToolId;
   title: string;
@@ -11,43 +22,58 @@ export interface ToolMeta {
   keywords: string;
 }
 
-export const tools: ToolMeta[] = [
+export type Translate = (key: string, values?: Record<string, string | number>) => string;
+
+export const tools: ToolDefinition[] = [
   {
     id: "json-diff",
-    title: "JSON Diff",
-    description: "比较字段变更。",
-    longDescription: "按稳定字段路径输出新增、删除和变更，并提供左右两侧语义高亮。",
-    kind: "compare",
+    titleKey: "toolMeta.jsonDiff.title",
+    descriptionKey: "toolMeta.jsonDiff.description",
+    longDescriptionKey: "toolMeta.jsonDiff.longDescription",
+    kindKey: "toolMeta.jsonDiff.kind",
+    keywordsKey: "toolMeta.jsonDiff.keywords",
     shortcut: "D",
-    tags: ["JSON", "Diff", "Compare"],
-    keywords: "JSON Diff 差异 对比 compare object field path"
+    tags: ["JSON", "Diff", "Compare"]
   },
   {
     id: "json-format",
-    title: "JSON 格式化",
-    description: "展开或压缩 JSON。",
-    longDescription: "把压缩 JSON 格式化为可读缩进，或压缩成适合接口传输的单行。",
-    kind: "format",
+    titleKey: "toolMeta.jsonFormat.title",
+    descriptionKey: "toolMeta.jsonFormat.description",
+    longDescriptionKey: "toolMeta.jsonFormat.longDescription",
+    kindKey: "toolMeta.jsonFormat.kind",
+    keywordsKey: "toolMeta.jsonFormat.keywords",
     shortcut: "F",
-    tags: ["JSON", "Formatter", "Minify"],
-    keywords: "JSON 格式化 format minify pretty beautify"
+    tags: ["JSON", "Formatter", "Minify"]
   },
   {
     id: "timestamp",
-    title: "时间戳转换",
-    description: "秒、毫秒、日期互转。",
-    longDescription: "Unix 时间戳、日期时间和常用时区互转，并提供开发常用复制值。",
-    kind: "time",
+    titleKey: "toolMeta.timestamp.title",
+    descriptionKey: "toolMeta.timestamp.description",
+    longDescriptionKey: "toolMeta.timestamp.longDescription",
+    kindKey: "toolMeta.timestamp.kind",
+    keywordsKey: "toolMeta.timestamp.keywords",
     shortcut: "T",
-    tags: ["Timestamp", "Unix Time", "Timezone"],
-    keywords: "时间戳 timestamp unix date time timezone 时区"
+    tags: ["Timestamp", "Unix Time", "Timezone"]
   }
 ];
+
+export function getLocalizedTools(t: Translate): ToolMeta[] {
+  return tools.map(tool => ({
+    id: tool.id,
+    title: t(tool.titleKey),
+    description: t(tool.descriptionKey),
+    longDescription: t(tool.longDescriptionKey),
+    kind: t(tool.kindKey),
+    shortcut: tool.shortcut,
+    tags: tool.tags,
+    keywords: t(tool.keywordsKey)
+  }));
+}
 
 export function isToolId(value: string): value is ToolId {
   return tools.some(tool => tool.id === value);
 }
 
-export function getToolById(id: ToolId) {
-  return tools.find(tool => tool.id === id);
+export function getLocalizedToolById(id: ToolId, t: Translate) {
+  return getLocalizedTools(t).find(tool => tool.id === id);
 }
