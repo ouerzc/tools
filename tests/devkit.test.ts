@@ -117,6 +117,18 @@ describe("theme switcher", () => {
   });
 });
 
+describe("sidebar", () => {
+  test("does not render the tag panel", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+
+    mountApplication();
+    await nextTick();
+
+    assert.equal(document.querySelector('[aria-label="侧边栏标签"]'), null);
+    assert.equal(document.querySelector('[aria-label="标签"]'), null);
+  });
+});
+
 describe("timestamp tool UI", () => {
   test("timezone selects render the full timezone option list", async () => {
     vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);

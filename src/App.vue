@@ -40,7 +40,6 @@ const filteredTools = computed(() => {
   if (!needle) return tools;
   return tools.filter(tool => [tool.title, tool.description, tool.longDescription, tool.keywords, ...tool.tags].join(" ").toLowerCase().includes(needle));
 });
-const allTags = computed(() => Array.from(new Set(tools.flatMap(tool => tool.tags))));
 
 type ThemeName = "light" | "dark";
 
@@ -184,18 +183,6 @@ onUnmounted(() => {
           <span>{{ tool.title }}</span>
         </a>
       </nav>
-
-      <div class="sidebar-panels" aria-label="侧边栏标签">
-        <section class="sidebar-panel" aria-label="标签">
-          <div class="side-head">
-            <h2>标签</h2>
-            <span class="mono">{{ allTags.length }}</span>
-          </div>
-          <div class="tag-list">
-            <Badge v-for="tag in allTags" :key="tag" tone="muted">{{ tag }}</Badge>
-          </div>
-        </section>
-      </div>
 
       <button class="theme-toggle" type="button" :aria-label="themeToggleLabel" :title="themeToggleLabel" @click="toggleTheme">
         <component :is="themeIcon" :size="17" aria-hidden="true" />

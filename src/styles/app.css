@@ -379,7 +379,6 @@ main {
 }
 
 .stack,
-.sidebar-panels,
 .tool-workspace,
 .tool-side-stack,
 .semantic-diff,
@@ -423,7 +422,6 @@ main {
 .tool-heading,
 .workspace-bar,
 .result-head,
-.side-head,
 .panel-head,
 .small-card-head,
 .tool-top,
@@ -528,7 +526,6 @@ textarea:focus,
 }
 
 .tag-row,
-.tag-list,
 .tool-heading-actions,
 .button-grid,
 .quick-actions {
@@ -750,20 +747,6 @@ textarea:focus,
   color: var(--muted-foreground);
 }
 
-.sidebar-panels {
-  gap: 14px;
-}
-
-.sidebar-panel {
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-subtle);
-  backdrop-filter: blur(18px);
-}
-
-.side-head,
 .panel-head {
   justify-content: space-between;
   gap: 12px;
@@ -772,7 +755,6 @@ textarea:focus,
   background: var(--head-bg);
 }
 
-.side-head h2,
 .small-card-head h2,
 .panel-title {
   margin: 0;
@@ -780,10 +762,6 @@ textarea:focus,
   font-size: 16px;
   line-height: 24px;
   font-weight: 650;
-}
-
-.tag-list {
-  padding: 14px 16px;
 }
 
 .active-shell {
@@ -1360,12 +1338,6 @@ textarea:focus,
     padding: 10px 12px;
   }
 
-  .sidebar-panels {
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    order: 4;
-  }
-
   .theme-toggle {
     margin-top: 0;
   }
@@ -1432,8 +1404,7 @@ textarea:focus,
 
   .tool-heading-actions,
   .quick-actions,
-  .button-grid,
-  .sidebar-panels {
+  .button-grid {
     display: grid;
     grid-template-columns: 1fr;
   }
