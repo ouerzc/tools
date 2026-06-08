@@ -12,6 +12,40 @@ function fallbackParseError(locale: string) {
   return locale === "en-US" ? "JSON parse failed" : "JSON 解析失败";
 }
 
+function isPlainJsonContainer(value: unknown): value is Record<string, unknown> | unknown[] {
+  return typeof value === "object" && value !== null;
+}
+
+function isEmbeddedJsonContainer(raw: string) {
+  const trimmed = raw.trim();
+  return (trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"));
+}
+
+function expandEmbeddedJson(value: unknown): unknown {
+  if (typeof value === "string") {
+    if (!isEmbeddedJsonContainer(value)) {
+      return value;
+    }
+
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return isPlainJsonContainer(parsed) ? expandEmbeddedJson(parsed) : value;
+    } catch {
+      return value;
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(item => expandEmbeddedJson(item));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, expandEmbeddedJson(item)]));
+  }
+
+  return value;
+}
+
 export function normalizeIndent(indent: unknown): JsonIndent {
   const value = Number(indent);
   if (value === 4) return 4;
@@ -24,10 +58,11 @@ export function formatJson(raw: string, indent: unknown, locale = "zh-CN"): Json
 
   try {
     const value = JSON.parse(raw) as unknown;
+    const expandedValue = expandEmbeddedJson(value);
     return {
       ok: true,
-      text: JSON.stringify(value, null, spaces),
-      value,
+      text: JSON.stringify(expandedValue, null, spaces),
+      value: expandedValue,
       indent: spaces,
       error: ""
     };

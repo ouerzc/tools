@@ -348,6 +348,27 @@ describe("JSON formatter", () => {
     assert.equal(invalid.ok, false);
     assert.match(invalid.error, /JSON|position|property|Unexpected/i);
   });
+
+  test("recursively expands escaped JSON object and array strings", () => {
+    const raw = JSON.stringify({
+      type: "data_http_call",
+      url: "dataapi-grpc-http.nexusguard.net:8811/v1/l3_tcp_policy_traffic",
+      params:
+        '{"site_info":{"version":1,"spe_gid":55,"customer_id":4119,"site_id":105184,"network_id":0,"host_id":108634,"mp_id":""},"time_info":{"start_time":1780921316,"end_time":1780924916,"range":1},"data_center":["cmc_hc","cmc_hc"],"policy_regex":"","is_group":1,"is_global":0,"type":"cp"}'
+    });
+
+    assert.equal(
+      formatJson(raw, 2).text,
+      '{\n  "type": "data_http_call",\n  "url": "dataapi-grpc-http.nexusguard.net:8811/v1/l3_tcp_policy_traffic",\n  "params": {\n    "site_info": {\n      "version": 1,\n      "spe_gid": 55,\n      "customer_id": 4119,\n      "site_id": 105184,\n      "network_id": 0,\n      "host_id": 108634,\n      "mp_id": ""\n    },\n    "time_info": {\n      "start_time": 1780921316,\n      "end_time": 1780924916,\n      "range": 1\n    },\n    "data_center": [\n      "cmc_hc",\n      "cmc_hc"\n    ],\n    "policy_regex": "",\n    "is_group": 1,\n    "is_global": 0,\n    "type": "cp"\n  }\n}'
+    );
+  });
+
+  test("keeps non-JSON and primitive-looking strings as strings", () => {
+    assert.equal(
+      formatJson('{"objectText":"{not json}","numberText":"123","booleanText":"true"}', 2).text,
+      '{\n  "objectText": "{not json}",\n  "numberText": "123",\n  "booleanText": "true"\n}'
+    );
+  });
 });
 
 describe("JSON diff", () => {
