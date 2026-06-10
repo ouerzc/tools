@@ -21,7 +21,7 @@ function isEmbeddedJsonContainer(raw: string) {
   return (trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"));
 }
 
-function expandEmbeddedJson(value: unknown): unknown {
+export function expandEmbeddedJson(value: unknown): unknown {
   if (typeof value === "string") {
     if (!isEmbeddedJsonContainer(value)) {
       return value;

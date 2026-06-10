@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, test, vi } from "vitest";
 
 import App from "../src/App.vue";
 import { i18n, initializeAppLocale } from "../src/i18n";
-import { diffJson, formatJsonValue, buildDiffViewModel } from "../src/lib/json-diff";
+import { diffJson, formatJsonValue, buildDiffViewModel, formatParsedJson, parseJson } from "../src/lib/json-diff";
 import { formatJson } from "../src/lib/json-format";
 import { createResult, formatInZone, formatZoneLabel, formatZoneOption, getOffsetLabel, getOffsetTimeZoneId, makeDateInZone, parseTimestamp, zones } from "../src/lib/timestamp";
 import { tools } from "../src/lib/tools";
@@ -19,8 +19,16 @@ function plain<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function projectFile(relativePath: string) {
+  return fs.readFileSync(path.join(root, relativePath), "utf8");
+}
+
+function cssSource() {
+  return projectFile("src/styles/app.css");
+}
+
 function cssBlock(selector: string) {
-  const css = fs.readFileSync(path.join(root, "src/styles/app.css"), "utf8");
+  const css = cssSource();
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = css.match(new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`));
   assert.ok(match, `${selector} should have a style block`);
@@ -286,6 +294,100 @@ describe("sidebar", () => {
   });
 });
 
+describe("liquid glass material system", () => {
+  test("restricts live backdrop filters to the shared glass utilities", () => {
+    const liveBackdropSelectors = Array.from(cssSource().matchAll(/^\s*([^{}@][^{}]*)\{([^{}]*)\}/gm)).flatMap(match => {
+      const selector = match[1].trim().replace(/\s+/g, " ");
+      const declarations = Array.from(match[2].matchAll(/\b(?:-webkit-)?backdrop-filter:\s*([^;]+);/g)).filter(declaration => declaration[1].trim() !== "none");
+      return declarations.map(() => selector);
+    });
+
+    assert.deepEqual(liveBackdropSelectors, [".glass, .glass-overlay", ".glass, .glass-overlay"]);
+  });
+
+  test("maps glass utilities only to floating shells and overlays", () => {
+    assert.match(projectFile("src/App.vue"), /class="topbar glass"/);
+    assert.match(projectFile("src/App.vue"), /class="tool-card glass"/);
+    assert.match(projectFile("src/App.vue"), /class="workspace-bar glass"/);
+    assert.match(projectFile("src/components/ui/SurfaceCard.vue"), /cn\("surface-card", "glass"/);
+    assert.doesNotMatch(projectFile("src/components/ToastViewport.vue"), /glass-overlay/);
+  });
+
+  test("adds lensing and pointer lighting to the glass utilities", () => {
+    const css = cssSource();
+    const app = projectFile("src/App.vue");
+
+    assert.match(css, /--glass-edge-faint:/);
+    assert.match(css, /\.glass::after,\s*\.glass-overlay::after\s*\{[\s\S]*?box-shadow:[^}]*inset 0 3px 6px -3px var\(--glass-edge-top\)[^}]*inset -1px 0 1px var\(--glass-edge-faint\)[^}]*inset 0 -3px 6px -3px var\(--glass-edge-bottom\)/);
+    assert.match(css, /radial-gradient\(280px circle at var\(--glass-mx, 18%\) var\(--glass-my, 0%\)/);
+    assert.match(app, /addEventListener\("pointermove", handleGlassPointerMove\)/);
+    assert.match(app, /style\.setProperty\("--glass-mx"/);
+    assert.match(app, /style\.setProperty\("--glass-my"/);
+  });
+
+  test("uses an independent fixed wallpaper layer instead of body-fixed background work", () => {
+    const body = cssBlock("body");
+    const wallpaper = cssBlock(".wallpaper");
+
+    assert.ok(fs.existsSync(path.join(root, "public/liquid-glass-wallpaper.svg")), "static liquid glass wallpaper should exist");
+    assert.match(projectFile("src/App.vue"), /<div class="wallpaper" aria-hidden="true"><\/div>/);
+    assert.match(cssSource(), /--wallpaper-image:\s*url\("\/liquid-glass-wallpaper\.svg"\);/);
+    assert.match(wallpaper, /position:\s*fixed;/);
+    assert.match(wallpaper, /var\(--wallpaper-image\)/);
+    assert.doesNotMatch(body, /var\(--wallpaper-image\)/);
+    assert.doesNotMatch(body, /background-attachment:\s*fixed/);
+  });
+
+  test("uses saturated wallpaper regions that survive glass blur", () => {
+    const lightWallpaper = projectFile("public/liquid-glass-wallpaper.svg");
+    const darkWallpaper = projectFile("public/liquid-glass-wallpaper-dark.svg");
+
+    assert.doesNotMatch(lightWallpaper, /<pattern id="grid"/);
+    assert.doesNotMatch(darkWallpaper, /<pattern id="grid"/);
+    assert.match(lightWallpaper, /#3b6fff/);
+    assert.match(lightWallpaper, /#2dd4c0/);
+    assert.match(lightWallpaper, /stop-opacity="0\.6/);
+    assert.match(darkWallpaper, /#82aaff/);
+    assert.match(darkWallpaper, /#2dd4c0/);
+    assert.match(darkWallpaper, /stop-opacity="0\.5/);
+  });
+
+  test("keeps toast high contrast instead of white glass on white text", () => {
+    const toast = cssBlock(".toast");
+    const visibleToast = cssBlock(".toast.show");
+
+    assert.match(projectFile("src/components/ToastViewport.vue"), /class="toast"/);
+    assert.doesNotMatch(toast, /--glass-material/);
+    assert.match(toast, /background:\s*var\(--code-bg\);/);
+    assert.match(toast, /color:\s*var\(--code-fg\);/);
+    assert.match(toast, /border:\s*1px solid var\(--code-border-strong\);/);
+    assert.match(visibleToast, /translate:\s*0 0;/);
+    assert.match(visibleToast, /opacity:\s*1;/);
+  });
+
+  test("handles reduced transparency, reduced motion, and smooth scrolling", () => {
+    const css = cssSource();
+    const app = projectFile("src/App.vue");
+
+    assert.match(css, /@media \(prefers-reduced-transparency: reduce\)/);
+    assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+    assert.match(css, /transition-duration:\s*1ms\s*!important;/);
+    assert.match(css, /scroll-behavior:\s*auto\s*!important;/);
+    assert.match(app, /prefers-reduced-motion: reduce/);
+    assert.match(app, /behavior:\s*prefersReducedMotion\(\)\s*\?\s*"auto"\s*:\s*"smooth"/);
+  });
+
+  test("removes stale cream glass tokens and keeps the design document current", () => {
+    const css = cssSource();
+    const design = projectFile("DESIGN.md");
+
+    assert.doesNotMatch(css, /rgba\(246,\s*241,\s*232/);
+    assert.match(design, /DevKit Hub Liquid Glass/);
+    assert.doesNotMatch(design, /toast\.glass-overlay/);
+    assert.doesNotMatch(design, /MeetMind|#6A43C8|purple/i);
+  });
+});
+
 describe("timestamp tool UI", () => {
   test("timezone selects render the full timezone option list", async () => {
     vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
@@ -372,6 +474,28 @@ describe("JSON formatter", () => {
 });
 
 describe("JSON diff", () => {
+  test("uses formatter expansion for escaped JSON strings", () => {
+    const raw = JSON.stringify({
+      params: '{"site_info":{"version":1},"data_center":["cmc_hc"]}',
+      plain: "123"
+    });
+
+    assert.deepEqual(plain(parseJson(raw).value), {
+      params: {
+        site_info: {
+          version: 1
+        },
+        data_center: ["cmc_hc"]
+      },
+      plain: "123"
+    });
+
+    assert.equal(
+      formatParsedJson(raw, 2).text,
+      '{\n  "params": {\n    "data_center": [\n      "cmc_hc"\n    ],\n    "site_info": {\n      "version": 1\n    }\n  },\n  "plain": "123"\n}'
+    );
+  });
+
   test("emits stable field paths for objects, arrays, and primitive roots", () => {
     assert.deepEqual(
       plain(

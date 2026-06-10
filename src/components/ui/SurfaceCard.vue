@@ -14,7 +14,7 @@ const props = withDefaults(
   }
 );
 
-const cardClass = computed(() => cn("surface-card", `surface-card--${props.tone}`));
+const cardClass = computed(() => cn("surface-card", "glass", `surface-card--${props.tone}`));
 </script>
 
 <template>

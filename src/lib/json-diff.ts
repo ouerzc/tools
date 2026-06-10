@@ -1,3 +1,5 @@
+import { expandEmbeddedJson } from "./json-format";
+
 export type DiffKind = "ADDED" | "REMOVED" | "CHANGED";
 
 export type DiffItem =
@@ -131,7 +133,7 @@ export function diffJson(leftValue: unknown, rightValue: unknown) {
 
 export function parseJson(raw: string, locale = "zh-CN"): ParseJsonResult {
   try {
-    return { ok: true, value: JSON.parse(raw) as unknown, error: "" };
+    return { ok: true, value: expandEmbeddedJson(JSON.parse(raw) as unknown), error: "" };
   } catch (error) {
     return { ok: false, value: undefined, error: error instanceof Error ? error.message : fallbackParseError(locale) };
   }

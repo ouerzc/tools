@@ -15,7 +15,6 @@ import {
   PanelLeftOpen,
   PanelTop,
   Search,
-  Sparkles,
   Sun
 } from "@lucide/vue";
 
@@ -24,7 +23,6 @@ import JsonDiffTool from "@/components/tools/JsonDiffTool.vue";
 import JsonFormatterTool from "@/components/tools/JsonFormatterTool.vue";
 import TimestampTool from "@/components/tools/TimestampTool.vue";
 import AppButton from "@/components/ui/AppButton.vue";
-import Badge from "@/components/ui/Badge.vue";
 import SurfaceCard from "@/components/ui/SurfaceCard.vue";
 import { provideToast } from "@/composables/useToast";
 import { localeLabels, setAppLocale, supportedLocales, type Locale } from "@/i18n";
@@ -55,6 +53,8 @@ const toast = provideToast();
 const theme = ref<ThemeName>(readStoredTheme());
 const sidebarCollapsed = ref(readStoredSidebarState());
 const { t, locale } = useI18n({ useScope: "global" });
+let pendingGlassPointer: { target: EventTarget | null; clientX: number; clientY: number } | null = null;
+let glassPointerFrame = 0;
 
 const translate = (key: string, values?: Record<string, string | number>) => t(key, values || {});
 
@@ -128,18 +128,51 @@ function syncFromHash() {
   activeToolId.value = readHash();
 }
 
+function prefersReducedMotion() {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+}
+
+function flushGlassPointer() {
+  glassPointerFrame = 0;
+  const pointer = pendingGlassPointer;
+  pendingGlassPointer = null;
+  if (!pointer || !(pointer.target instanceof Element)) return;
+
+  const glass = pointer.target.closest<HTMLElement>(".glass, .glass-overlay");
+  if (!glass) return;
+
+  const rect = glass.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+
+  const x = ((pointer.clientX - rect.left) / rect.width) * 100;
+  const y = ((pointer.clientY - rect.top) / rect.height) * 100;
+  glass.style.setProperty("--glass-mx", `${Math.min(100, Math.max(0, x)).toFixed(2)}%`);
+  glass.style.setProperty("--glass-my", `${Math.min(100, Math.max(0, y)).toFixed(2)}%`);
+}
+
+function handleGlassPointerMove(event: PointerEvent) {
+  pendingGlassPointer = { target: event.target, clientX: event.clientX, clientY: event.clientY };
+  if (!glassPointerFrame) {
+    glassPointerFrame = window.requestAnimationFrame(flushGlassPointer);
+  }
+}
+
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+}
+
 function openTool(id: ToolId) {
   activeToolId.value = id;
   if (window.location.hash !== `#${id}`) {
     window.location.hash = id;
   }
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  scrollToTop();
 }
 
 function goHome() {
   activeToolId.value = null;
   window.history.pushState(null, "", `${window.location.pathname}${window.location.search}`);
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  scrollToTop();
 }
 
 function iconForTool(id: ToolId) {
@@ -208,19 +241,27 @@ onMounted(() => {
   applyTheme(theme.value);
   window.addEventListener("hashchange", syncFromHash);
   window.addEventListener("keydown", handleKeydown);
+  if (!prefersReducedMotion()) {
+    document.addEventListener("pointermove", handleGlassPointerMove);
+  }
 });
 
 onUnmounted(() => {
   window.removeEventListener("hashchange", syncFromHash);
   window.removeEventListener("keydown", handleKeydown);
+  document.removeEventListener("pointermove", handleGlassPointerMove);
+  if (glassPointerFrame) {
+    window.cancelAnimationFrame(glassPointerFrame);
+  }
 });
 </script>
 
 <template>
+  <div class="wallpaper" aria-hidden="true"></div>
   <a class="skip-link" href="#main-content">{{ t("app.skipLink") }}</a>
 
   <div class="app-layout" :class="{ 'app-layout--sidebar-collapsed': sidebarCollapsed }">
-    <header class="topbar" :class="{ 'topbar--collapsed': sidebarCollapsed }">
+    <header class="topbar glass" :class="{ 'topbar--collapsed': sidebarCollapsed }">
       <div class="topbar-head">
         <a class="brand" href="#" :aria-label="t('app.brandHome')" title="DevKit Hub" @click.prevent="goHome">
           <span class="mark"><Braces :size="18" aria-hidden="true" /></span>
@@ -263,37 +304,31 @@ onUnmounted(() => {
       <main id="main-content">
         <section v-if="!activeToolId" class="home-layout" aria-labelledby="page-title">
           <div class="stack">
-            <SurfaceCard class="command-panel">
-              <div class="headline">
-                <div>
-                  <Badge tone="muted">{{ t("app.home.badge") }}</Badge>
-                  <h1 id="page-title">{{ t("app.home.title") }}</h1>
+            <SurfaceCard class="command-panel" tone="subtle">
+              <div class="command-strip">
+                <div class="command-title-group">
+                  <span class="command-title-icon"><Braces :size="17" aria-hidden="true" /></span>
+                  <div>
+                    <h1 id="page-title">{{ t("app.home.title") }}</h1>
+                    <span>{{ t("app.home.count", { shown: filteredTools.length, total: tools.length }) }}</span>
+                  </div>
                 </div>
-                <span class="count">{{ t("app.home.count", { shown: filteredTools.length, total: tools.length }) }}</span>
-              </div>
 
-              <div class="command-row">
-                <label class="searchbox">
+                <label class="searchbox command-search">
                   <Search :size="18" aria-hidden="true" />
                   <input ref="searchInput" v-model="query" type="search" :placeholder="t('app.home.searchPlaceholder')" autocomplete="off" />
                   <span class="kbd"><Command :size="12" aria-hidden="true" />K</span>
                 </label>
-                <AppButton size="lg" @click="copyHubLink()">
+
+                <AppButton class="command-copy" size="md" @click="copyHubLink()">
                   <Copy :size="16" aria-hidden="true" />
                   {{ t("app.home.copyEntry") }}
                 </AppButton>
               </div>
-
-              <div class="tag-row" :aria-label="t('app.home.tagsAria')">
-                <Badge>JSON</Badge>
-                <Badge tone="muted">Diff</Badge>
-                <Badge tone="muted">Formatter</Badge>
-                <Badge tone="muted">Timestamp</Badge>
-              </div>
             </SurfaceCard>
 
             <section class="tools-grid" :aria-label="t('app.home.toolsAria')" aria-live="polite">
-              <button v-for="tool in filteredTools" :key="tool.id" class="tool-card" type="button" @click="openTool(tool.id)">
+              <button v-for="tool in filteredTools" :key="tool.id" class="tool-card glass" type="button" @click="openTool(tool.id)">
                 <span class="tool-top">
                   <span class="tool-icon"><component :is="iconForTool(tool.id)" :size="20" aria-hidden="true" /></span>
                   <span class="tool-kind">{{ shortcutLabel(tool) }}</span>
@@ -316,7 +351,7 @@ onUnmounted(() => {
         </section>
 
         <section v-else class="active-shell">
-          <div class="workspace-bar">
+          <div class="workspace-bar glass">
             <AppButton variant="outline" size="sm" @click="goHome">
               <ArrowLeft :size="15" aria-hidden="true" />
               {{ t("app.workspace.back") }}
@@ -343,5 +378,4 @@ onUnmounted(() => {
   </footer>
 
   <ToastViewport :message="toast.message.value" :visible="toast.visible.value" />
-  <Sparkles class="ambient-mark" :size="18" aria-hidden="true" />
 </template>

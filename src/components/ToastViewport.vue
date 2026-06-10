@@ -7,6 +7,6 @@ defineProps<{
 
 <template>
   <div class="toast" :class="{ show: visible }" role="status" aria-live="polite">
-    {{ message }}
+    <span>{{ message }}</span>
   </div>
 </template>
