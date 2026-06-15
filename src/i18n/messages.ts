@@ -123,7 +123,20 @@ export const messages = {
         bytes: "字节",
         mode: "模式",
         singleLine: "单行",
-        spaces: "{count} 空格"
+        spaces: "{count} 空格",
+        viewMode: "JSON 视图模式",
+        textView: "文本",
+        previewView: "折叠预览",
+        tree: {
+          aria: "可折叠 JSON 预览",
+          ready: "合法 JSON，可折叠预览",
+          empty: "格式化合法 JSON 后查看折叠预览",
+          fixJson: "修正 JSON 后查看折叠预览",
+          collapseAll: "全部折叠",
+          expandAll: "全部展开",
+          collapsePath: "折叠 {path}",
+          expandPath: "展开 {path}"
+        }
       },
       timestamp: {
         badge: "Unix Time",
@@ -338,7 +351,20 @@ export const messages = {
         bytes: "Bytes",
         mode: "Mode",
         singleLine: "Single line",
-        spaces: "{count} spaces"
+        spaces: "{count} spaces",
+        viewMode: "JSON view mode",
+        textView: "Text",
+        previewView: "Tree preview",
+        tree: {
+          aria: "Collapsible JSON preview",
+          ready: "Valid JSON, collapsible preview",
+          empty: "Format valid JSON to view the tree preview",
+          fixJson: "Fix JSON to view the tree preview",
+          collapseAll: "Collapse all",
+          expandAll: "Expand all",
+          collapsePath: "Collapse {path}",
+          expandPath: "Expand {path}"
+        }
       },
       timestamp: {
         badge: "Unix Time",

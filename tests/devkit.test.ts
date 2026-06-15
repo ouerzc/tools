@@ -10,6 +10,7 @@ import App from "../src/App.vue";
 import { i18n, initializeAppLocale } from "../src/i18n";
 import { diffJson, formatJsonValue, buildDiffViewModel, formatParsedJson, parseJson } from "../src/lib/json-diff";
 import { formatJson } from "../src/lib/json-format";
+import { buildJsonTree } from "../src/lib/json-tree";
 import { createResult, formatInZone, formatZoneLabel, formatZoneOption, getOffsetLabel, getOffsetTimeZoneId, makeDateInZone, parseTimestamp, zones } from "../src/lib/timestamp";
 import { tools } from "../src/lib/tools";
 
@@ -442,6 +443,52 @@ describe("timestamp tool UI", () => {
 });
 
 describe("JSON formatter", () => {
+  test("builds a collapsible tree model with stable paths and summaries", () => {
+    const tree = buildJsonTree({
+      b: 2,
+      a: { ok: true },
+      list: [null, "x"],
+      empty: {}
+    });
+
+    assert.equal(tree.kind, "object");
+    assert.equal(tree.path, "$");
+    assert.equal(tree.summary, "{...} 4 keys");
+    assert.equal(tree.collapsible, true);
+    assert.deepEqual(
+      tree.children.map(child => [child.key, child.path, child.kind, child.summary, child.collapsible]),
+      [
+        ["b", "$.b", "number", "2", false],
+        ["a", "$.a", "object", "{...} 1 key", true],
+        ["list", "$.list", "array", "[...] 2 items", true],
+        ["empty", "$.empty", "object", "{} 0 keys", false]
+      ]
+    );
+    assert.deepEqual(
+      tree.children[2].children.map(child => [child.key, child.path, child.kind, child.summary]),
+      [
+        ["0", "$.list[0]", "null", "null"],
+        ["1", "$.list[1]", "string", '"x"']
+      ]
+    );
+  });
+
+  test("builds scalar and root array tree nodes", () => {
+    const scalar = buildJsonTree("ready");
+    assert.equal(scalar.kind, "string");
+    assert.equal(scalar.path, "$");
+    assert.equal(scalar.summary, '"ready"');
+    assert.equal(scalar.collapsible, false);
+
+    const array = buildJsonTree([{ id: 1 }, []]);
+    assert.equal(array.kind, "array");
+    assert.equal(array.summary, "[...] 2 items");
+    assert.equal(array.children[0].path, "$[0]");
+    assert.equal(array.children[0].summary, "{...} 1 key");
+    assert.equal(array.children[1].summary, "[] 0 items");
+    assert.equal(array.children[1].collapsible, false);
+  });
+
   test("parses, formats, minifies, and reports invalid input", () => {
     assert.equal(formatJson('{"b":2,"a":1}', 2).text, '{\n  "b": 2,\n  "a": 1\n}');
     assert.equal(formatJson('{"b":2,"a":1}', 0).text, '{"b":2,"a":1}');
@@ -470,6 +517,85 @@ describe("JSON formatter", () => {
       formatJson('{"objectText":"{not json}","numberText":"123","booleanText":"true"}', 2).text,
       '{\n  "objectText": "{not json}",\n  "numberText": "123",\n  "booleanText": "true"\n}'
     );
+  });
+
+  test("shows a collapsible tree preview after formatting valid JSON", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    window.location.hash = "#json-format";
+
+    mountApplication();
+    await nextTick();
+
+    const input = document.querySelector<HTMLTextAreaElement>(".code-textarea");
+    const formatButton = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.trim() === "格式化");
+    assert.ok(input, "formatter textarea should be available");
+    assert.ok(formatButton, "format button should be available");
+
+    input.value = '{"name":"DevKit","theme":{"surface":"warm"},"tools":[{"id":"json-format"}]}';
+    input.dispatchEvent(new Event("input"));
+    await nextTick();
+
+    formatButton.click();
+    await nextTick();
+
+    const treePanel = document.querySelector<HTMLElement>(".json-tree-panel");
+    assert.ok(treePanel, "tree preview should be shown after formatting");
+    assert.match(treePanel.textContent || "", /theme/);
+    assert.match(treePanel.textContent || "", /surface/);
+    assert.match(treePanel.textContent || "", /\{\.\.\.\} 3 keys/);
+
+    const rootToggle = document.querySelector<HTMLButtonElement>('.json-tree-toggle[aria-label="折叠 $"]');
+    assert.ok(rootToggle, "root tree toggle should be available");
+
+    rootToggle.click();
+    await nextTick();
+
+    assert.doesNotMatch(treePanel.textContent || "", /surface/);
+    assert.ok(document.querySelector<HTMLButtonElement>('.json-tree-toggle[aria-label="展开 $"]'), "collapsed root should expose an expand button");
+
+    document.querySelector<HTMLButtonElement>('.json-tree-toggle[aria-label="展开 $"]')?.click();
+    await nextTick();
+
+    assert.match(treePanel.textContent || "", /surface/);
+  });
+
+  test("clears the tree preview when edited JSON becomes invalid", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    window.location.hash = "#json-format";
+
+    mountApplication();
+    await nextTick();
+
+    const input = document.querySelector<HTMLTextAreaElement>(".code-textarea");
+    const formatButton = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.trim() === "格式化");
+    assert.ok(input, "formatter textarea should be available");
+    assert.ok(formatButton, "format button should be available");
+
+    input.value = '{"valid":true,"nested":{"ok":1}}';
+    input.dispatchEvent(new Event("input"));
+    await nextTick();
+    formatButton.click();
+    await nextTick();
+    assert.ok(document.querySelector(".json-tree-node"), "valid formatting should render tree nodes");
+
+    const textTab = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.trim() === "文本");
+    assert.ok(textTab, "text tab should be available");
+    textTab.click();
+    await nextTick();
+
+    const editedInput = document.querySelector<HTMLTextAreaElement>(".code-textarea");
+    assert.ok(editedInput, "formatter textarea should still be available in text mode");
+    editedInput.value = "{bad";
+    editedInput.dispatchEvent(new Event("input"));
+    await nextTick();
+
+    const previewTab = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.trim() === "折叠预览");
+    assert.ok(previewTab, "preview tab should be available");
+    previewTab.click();
+    await nextTick();
+
+    assert.equal(document.querySelector(".json-tree-node"), null);
+    assert.match(document.body.textContent || "", /修正 JSON 后查看折叠预览/);
   });
 });
 

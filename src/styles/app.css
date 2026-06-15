@@ -1202,6 +1202,31 @@ textarea:focus,
   min-width: 0;
 }
 
+.formatter-panel-actions {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.formatter-view-toggle,
+.json-tree-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.formatter-view-toggle .inline-action.active {
+  border-color: var(--interactive-border);
+  background: var(--control-fill-active);
+  color: var(--foreground);
+}
+
 .status-text {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -1234,6 +1259,110 @@ textarea:focus,
 
 .code-textarea.tall {
   min-height: 560px;
+}
+
+.json-tree-panel {
+  min-height: 560px;
+  overflow: hidden;
+  background: var(--code-bg-2);
+  color: var(--code-fg);
+}
+
+.json-tree-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--code-border);
+  padding: 12px 14px;
+  color: var(--code-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.json-tree-toolbar .inline-action {
+  min-height: 28px;
+  border-color: var(--code-border-strong);
+  background: var(--code-row-bg);
+  color: var(--code-fg);
+  box-shadow: none;
+}
+
+.json-tree-toolbar .inline-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+}
+
+.json-tree-scroll {
+  max-height: 520px;
+  overflow: auto;
+  padding: 10px 0;
+  background: var(--code-bg-2);
+}
+
+.json-tree-node {
+  min-width: max-content;
+}
+
+.json-tree-row {
+  display: grid;
+  grid-template-columns: 22px max-content max-content;
+  gap: 8px;
+  align-items: center;
+  min-width: max-content;
+  padding: 2px 12px 2px;
+  font: 12px/1.55 var(--font-mono);
+}
+
+.json-tree-row:hover {
+  background: var(--code-row-bg);
+}
+
+.json-tree-toggle,
+.json-tree-toggle-spacer {
+  width: 22px;
+  height: 22px;
+}
+
+.json-tree-toggle {
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--code-muted);
+  padding: 0;
+}
+
+.json-tree-toggle:hover,
+.json-tree-toggle:focus-visible {
+  border-color: var(--code-border-strong);
+  background: var(--code-row-bg);
+  color: var(--code-fg);
+}
+
+.json-tree-key {
+  color: var(--code-muted);
+}
+
+.json-tree-row--object > .json-tree-summary,
+.json-tree-row--array > .json-tree-summary {
+  color: var(--code-fg);
+}
+
+.json-tree-row--string > .json-tree-summary {
+  color: #9de0b1;
+}
+
+.json-tree-row--number > .json-tree-summary,
+.json-tree-row--boolean > .json-tree-summary {
+  color: #e7c888;
+}
+
+.json-tree-row--null > .json-tree-summary {
+  color: #eba19a;
 }
 
 .control-card,
