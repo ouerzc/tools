@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200" viewBox="0 0 1800 1200" role="img" aria-label="saturated blue liquid glass wallpaper">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbfdff"/>
+      <stop offset="0.46" stop-color="#e7f2ff"/>
+      <stop offset="1" stop-color="#f4f8ff"/>
+    </linearGradient>
+    <radialGradient id="blue-a" cx="22%" cy="10%" r="52%">
+      <stop offset="0" stop-color="#3b6fff" stop-opacity="0.68"/>
+      <stop offset="0.42" stop-color="#6da0ff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cyan-a" cx="76%" cy="18%" r="48%">
+      <stop offset="0" stop-color="#2dd4c0" stop-opacity="0.62"/>
+      <stop offset="0.44" stop-color="#77eee0" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="blue-b" cx="48%" cy="44%" r="54%">
+      <stop offset="0" stop-color="#3b6fff" stop-opacity="0.34"/>
+      <stop offset="0.5" stop-color="#9fc0ff" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cyan-b" cx="86%" cy="58%" r="46%">
+      <stop offset="0" stop-color="#2dd4c0" stop-opacity="0.36"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soften">
+      <feGaussianBlur stdDeviation="34"/>
+    </filter>
+  </defs>
+  <rect width="1800" height="1200" fill="url(#base)"/>
+  <rect width="1800" height="1200" fill="url(#blue-a)"/>
+  <rect width="1800" height="1200" fill="url(#cyan-a)"/>
+  <rect width="1800" height="1200" fill="url(#blue-b)"/>
+  <rect width="1800" height="1200" fill="url(#cyan-b)"/>
+  <g filter="url(#soften)" opacity="0.72">
+    <ellipse cx="480" cy="210" rx="330" ry="170" fill="#3b6fff" opacity="0.24"/>
+    <ellipse cx="1060" cy="260" rx="430" ry="180" fill="#2dd4c0" opacity="0.2"/>
+    <ellipse cx="760" cy="610" rx="520" ry="210" fill="#ffffff" opacity="0.5"/>
+    <ellipse cx="1320" cy="690" rx="400" ry="180" fill="#3b6fff" opacity="0.14"/>
+  </g>
+  <path d="M0 0H1800V1200H0Z" fill="none" stroke="#ffffff" stroke-opacity="0.48" stroke-width="2"/>
+</svg>
