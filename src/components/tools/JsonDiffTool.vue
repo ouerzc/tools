@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, type Ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { Clipboard, GitCompareArrows, WandSparkles } from "@lucide/vue";
+import { Clipboard, Copy, GitCompareArrows, WandSparkles } from "@lucide/vue";
 
 import AppButton from "@/components/ui/AppButton.vue";
 import Badge from "@/components/ui/Badge.vue";
@@ -118,6 +118,12 @@ async function copyResult() {
   const ok = await copyText(resultText.value.trim());
   showToast(ok ? t("tools.jsonDiff.copied") : t("common.copyBlocked"));
 }
+
+async function copySide(side: "left" | "right") {
+  const source = side === "left" ? leftInput : rightInput;
+  const ok = await copyText(source.value.trim());
+  showToast(ok ? t("tools.jsonDiff.copiedJson") : t("common.copyBlocked"));
+}
 </script>
 
 <template>
@@ -146,6 +152,9 @@ async function copyResult() {
           <label class="panel-title" for="leftJson">{{ t("tools.jsonDiff.leftJson") }}</label>
           <span class="panel-actions">
             <span class="status-text" :class="{ error: leftStatus.error }">{{ leftStatusText }}</span>
+            <button class="inline-action inline-action--icon" type="button" :aria-label="t('tools.jsonDiff.copyLeft')" :title="t('tools.jsonDiff.copyLeft')" @click="copySide('left')">
+              <Copy :size="14" aria-hidden="true" />
+            </button>
             <button class="inline-action" type="button" @click="formatSide('left')">{{ t("tools.jsonDiff.format") }}</button>
           </span>
         </div>
@@ -164,6 +173,9 @@ async function copyResult() {
           <label class="panel-title" for="rightJson">{{ t("tools.jsonDiff.rightJson") }}</label>
           <span class="panel-actions">
             <span class="status-text" :class="{ error: rightStatus.error }">{{ rightStatusText }}</span>
+            <button class="inline-action inline-action--icon" type="button" :aria-label="t('tools.jsonDiff.copyRight')" :title="t('tools.jsonDiff.copyRight')" @click="copySide('right')">
+              <Copy :size="14" aria-hidden="true" />
+            </button>
             <button class="inline-action" type="button" @click="formatSide('right')">{{ t("tools.jsonDiff.format") }}</button>
           </span>
         </div>

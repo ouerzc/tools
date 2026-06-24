@@ -667,6 +667,48 @@ describe("JSON diff", () => {
     assert.equal(model.leftText.includes('"removed": true'), true);
     assert.equal(model.rightText.includes('"added": "x"'), true);
   });
+
+  test("copies formatted left and right JSON panes", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    const writes: string[] = [];
+    setClipboardWriter(vi.fn(async (text: string) => {
+      writes.push(text);
+    }));
+    window.location.hash = "#json-diff";
+
+    mountApplication();
+    await nextTick();
+
+    const inputs = Array.from(document.querySelectorAll<HTMLTextAreaElement>(".diff-input-grid .code-textarea"));
+    const compareButton = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.trim() === "比较");
+    assert.equal(inputs.length, 2, "left and right JSON inputs should be available");
+    assert.ok(compareButton, "compare button should be available");
+
+    inputs[0].value = '{"z":1,"a":2}';
+    inputs[0].dispatchEvent(new Event("input"));
+    inputs[1].value = '{"z":2,"b":3}';
+    inputs[1].dispatchEvent(new Event("input"));
+    await nextTick();
+
+    compareButton.click();
+    await nextTick();
+
+    const leftCopy = document.querySelector<HTMLButtonElement>('[aria-label="复制左侧 JSON"]');
+    const rightCopy = document.querySelector<HTMLButtonElement>('[aria-label="复制右侧 JSON"]');
+    assert.ok(leftCopy, "left JSON copy button should be available");
+    assert.ok(rightCopy, "right JSON copy button should be available");
+
+    leftCopy.click();
+    await new Promise(resolve => window.setTimeout(resolve, 0));
+    rightCopy.click();
+    await new Promise(resolve => window.setTimeout(resolve, 0));
+
+    assert.deepEqual(writes, [
+      '{\n  "a": 2,\n  "z": 1\n}',
+      '{\n  "b": 3,\n  "z": 2\n}'
+    ]);
+    assert.match(document.body.textContent || "", /已复制/);
+  });
 });
 
 describe("timestamp helpers", () => {

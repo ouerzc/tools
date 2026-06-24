@@ -1723,6 +1723,11 @@ textarea:focus,
   transform: scale(0.96);
 }
 
+.inline-action--icon {
+  width: 30px;
+  padding: 0;
+}
+
 .small-card-head {
   justify-content: space-between;
   padding: 14px 16px 0;
