@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, test, vi } from "vitest";
 import App from "../src/App.vue";
 import { i18n, initializeAppLocale } from "../src/i18n";
 import { diffJson, formatJsonValue, buildDiffViewModel, formatParsedJson, parseJson } from "../src/lib/json-diff";
+import { clearJsonHistory, jsonHistoryStorageKey, loadJsonHistory, recordJsonHistory } from "../src/lib/json-history";
 import { formatJson } from "../src/lib/json-format";
 import { buildJsonTree } from "../src/lib/json-tree";
 import { createResult, formatInZone, formatZoneLabel, formatZoneOption, getOffsetLabel, getOffsetTimeZoneId, makeDateInZone, parseTimestamp, zones } from "../src/lib/timestamp";
@@ -443,6 +444,14 @@ describe("timestamp tool UI", () => {
 });
 
 describe("JSON formatter", () => {
+  test("keeps the text editor vertically resizable", () => {
+    const editorCard = cssBlock(".formatter-layout .editor-card");
+    const textarea = cssBlock(".code-textarea");
+
+    assert.match(textarea, /resize:\s*vertical;/);
+    assert.match(editorCard, /overflow:\s*visible;/);
+  });
+
   test("builds a collapsible tree model with stable paths and summaries", () => {
     const tree = buildJsonTree({
       b: 2,
@@ -599,7 +608,292 @@ describe("JSON formatter", () => {
   });
 });
 
+describe("JSON format history", () => {
+  test("validates stored entries, keeps the latest semantic duplicate, and clears history", () => {
+    window.localStorage.setItem(jsonHistoryStorageKey, "not-json");
+    assert.deepEqual(loadJsonHistory(), []);
+
+    const first = recordJsonHistory({ text: '{"b":2,"a":{"z":1,"x":true}}', indent: 0 }, 100);
+    assert.equal(first.length, 1);
+
+    const duplicate = recordJsonHistory(
+      {
+        text: '{\n  "a": {\n    "x": true,\n    "z": 1\n  },\n  "b": 2\n}',
+        indent: 2
+      },
+      200
+    );
+    assert.equal(duplicate.length, 1);
+    assert.equal(duplicate[0].id, first[0].id);
+    assert.equal(duplicate[0].indent, 2);
+    assert.equal(duplicate[0].formattedAt, 200);
+
+    window.localStorage.setItem(jsonHistoryStorageKey, JSON.stringify([{ id: "broken", text: "{bad", indent: 2, formattedAt: 300 }, duplicate[0]]));
+    assert.deepEqual(loadJsonHistory(), duplicate);
+
+    clearJsonHistory();
+    assert.deepEqual(loadJsonHistory(), []);
+  });
+
+  test("keeps at most ten newest entries and tolerates unavailable storage", () => {
+    for (let index = 0; index < 11; index += 1) {
+      recordJsonHistory({ text: JSON.stringify({ value: index }), indent: 2 }, index + 1);
+    }
+
+    assert.deepEqual(
+      loadJsonHistory().map(entry => entry.formattedAt),
+      [11, 10, 9, 8, 7, 6, 5, 4, 3, 2]
+    );
+
+    const blockedStorage = {
+      getItem() {
+        throw new Error("blocked");
+      },
+      setItem() {
+        throw new Error("blocked");
+      },
+      removeItem() {
+        throw new Error("blocked");
+      }
+    };
+
+    assert.deepEqual(loadJsonHistory(blockedStorage), []);
+    assert.doesNotThrow(() => recordJsonHistory({ text: '{"ok":true}', indent: 2 }, 20, blockedStorage));
+    assert.doesNotThrow(() => clearJsonHistory(blockedStorage));
+  });
+
+  test("records only successful explicit formatting, restores an entry, and clears without touching the editor", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    window.location.hash = "#json-format";
+
+    mountApplication();
+    await nextTick();
+
+    const initialInput = document.querySelector<HTMLTextAreaElement>(".code-textarea");
+    const formatButton = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.trim() === "格式化");
+    assert.ok(initialInput, "formatter textarea should be available");
+    assert.ok(formatButton, "format button should be available");
+
+    initialInput.value = '{"b":2,"a":{"x":true}}';
+    initialInput.dispatchEvent(new Event("input"));
+    formatButton.click();
+    await nextTick();
+
+    const [entry] = loadJsonHistory();
+    assert.ok(entry, "successful formatting should be added to history");
+    assert.equal(entry.indent, 2);
+    assert.equal(document.querySelectorAll(".json-history-item").length, 1);
+
+    const textTab = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.trim() === "文本");
+    assert.ok(textTab, "text tab should be available");
+    textTab.click();
+    await nextTick();
+
+    const editedInput = document.querySelector<HTMLTextAreaElement>(".code-textarea");
+    assert.ok(editedInput, "text editor should be available after switching views");
+    editedInput.value = "{bad";
+    editedInput.dispatchEvent(new Event("input"));
+    await nextTick();
+    assert.equal(loadJsonHistory().length, 1, "invalid edits should not create history");
+
+    document.querySelector<HTMLButtonElement>(".json-history-item")?.click();
+    await nextTick();
+    const restoredInput = document.querySelector<HTMLTextAreaElement>(".code-textarea");
+    assert.ok(restoredInput, "history should preserve the current text view");
+    assert.equal(restoredInput.value, entry.text);
+
+    const previewTab = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.trim() === "折叠预览");
+    assert.ok(previewTab, "preview tab should be available");
+    previewTab.click();
+    await nextTick();
+    assert.ok(document.querySelector(".json-tree-node"), "restored history should rebuild the tree preview");
+
+    const editorValue = entry.text;
+    const clearButton = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.trim() === "清空");
+    assert.ok(clearButton, "history clear action should be available");
+    clearButton.click();
+    await nextTick();
+    assert.deepEqual(loadJsonHistory(), []);
+
+    const textTabAfterClear = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.trim() === "文本");
+    assert.ok(textTabAfterClear, "text tab should remain available after clearing history");
+    textTabAfterClear.click();
+    await nextTick();
+    assert.equal(document.querySelector<HTMLTextAreaElement>(".code-textarea")?.value, editorValue);
+  });
+
+  test("records a successful minify without duplicating the same JSON", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    window.location.hash = "#json-format";
+
+    mountApplication();
+    await nextTick();
+
+    const input = document.querySelector<HTMLTextAreaElement>(".code-textarea");
+    const minifyButton = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.trim() === "压缩");
+    assert.ok(input, "formatter textarea should be available");
+    assert.ok(minifyButton, "minify button should be available");
+
+    input.value = '{\n  "b": 2,\n  "a": 1\n}';
+    input.dispatchEvent(new Event("input"));
+    minifyButton.click();
+    await nextTick();
+
+    assert.equal(loadJsonHistory().length, 1);
+    assert.equal(loadJsonHistory()[0].indent, 0);
+    assert.equal(loadJsonHistory()[0].text, '{"b":2,"a":1}');
+  });
+
+  test("persists formatted history across remounts and lets each diff side select it independently", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    window.location.hash = "#json-format";
+
+    mountApplication();
+    await nextTick();
+
+    const formatterInput = document.querySelector<HTMLTextAreaElement>(".code-textarea");
+    const formatButton = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.trim() === "格式化");
+    assert.ok(formatterInput, "formatter textarea should be available");
+    assert.ok(formatButton, "format button should be available");
+    formatterInput.value = '{"value":1}';
+    formatterInput.dispatchEvent(new Event("input"));
+    formatButton.click();
+    await nextTick();
+
+    const leftEntry = loadJsonHistory()[0];
+    const rightEntry = recordJsonHistory({ text: '{\n  "value": 2\n}', indent: 2 }, leftEntry.formattedAt + 1)[0];
+
+    mountedApp?.unmount();
+    mountedApp = null;
+    document.body.innerHTML = "";
+    window.location.hash = "#json-diff";
+
+    mountApplication();
+    await nextTick();
+
+    const leftSelect = document.querySelector<HTMLSelectElement>("#leftHistory");
+    const rightSelect = document.querySelector<HTMLSelectElement>("#rightHistory");
+    const inputs = Array.from(document.querySelectorAll<HTMLTextAreaElement>(".diff-input-grid .code-textarea"));
+    assert.ok(leftSelect, "left history select should be available");
+    assert.ok(rightSelect, "right history select should be available");
+    assert.equal(inputs.length, 2, "diff inputs should be available");
+
+    leftSelect.value = leftEntry.id;
+    leftSelect.dispatchEvent(new Event("change"));
+    rightSelect.value = rightEntry.id;
+    rightSelect.dispatchEvent(new Event("change"));
+    await nextTick();
+
+    assert.equal(inputs[0].value, leftEntry.text);
+    assert.equal(inputs[1].value, rightEntry.text);
+
+    inputs[0].value = '{"value":3}';
+    inputs[0].dispatchEvent(new Event("input"));
+    await nextTick();
+    assert.equal(leftSelect.value, "", "manual edits should clear the history selection");
+
+    const compareButton = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.trim() === "比较");
+    assert.ok(compareButton, "compare button should be available");
+    compareButton.click();
+    await nextTick();
+    assert.ok(document.querySelector(".semantic-diff"), "history-loaded JSON should work with comparison");
+  });
+
+  test("disables diff history selectors when no formatted JSON exists", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    window.location.hash = "#json-diff";
+
+    mountApplication();
+    await nextTick();
+
+    const selectors = Array.from(document.querySelectorAll<HTMLSelectElement>(".json-history-select"));
+    assert.equal(selectors.length, 2);
+    assert.equal(selectors.every(selector => selector.disabled), true);
+    assert.match(document.body.textContent || "", /暂无格式化历史/);
+  });
+});
+
 describe("JSON diff", () => {
+  test("adds up to five inputs and compares every target against the first JSON", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    window.location.hash = "#json-diff";
+    mountApplication();
+    await nextTick();
+    const button = (text: string) => Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(item => item.textContent?.trim() === text);
+    const add = button("添加 JSON");
+    assert.ok(add, "add JSON action should exist");
+    for (let index = 0; index < 4; index++) {
+      add.click();
+      await nextTick();
+    }
+    let inputs = Array.from(document.querySelectorAll<HTMLTextAreaElement>(".diff-input-grid textarea"));
+    assert.equal(inputs.length, 5);
+    assert.equal(add.disabled, true);
+    inputs.forEach((input, index) => {
+      input.value = JSON.stringify({ value: index });
+      input.dispatchEvent(new Event("input"));
+    });
+    button("比较")?.click();
+    await nextTick();
+    const groups = Array.from(document.querySelectorAll(".diff-comparison"));
+    assert.equal(groups.length, 4);
+    groups.forEach((group, index) => {
+      assert.match(group.textContent || "", new RegExp(`JSON 1 ↔ JSON ${index + 2}`));
+      assert.equal(group.querySelector(".diff-detail-value")?.textContent, `0 -> ${index + 1}`);
+    });
+    document.querySelector<HTMLButtonElement>('[aria-label="移除 JSON 3"]')?.click();
+    await nextTick();
+    inputs = Array.from(document.querySelectorAll<HTMLTextAreaElement>(".diff-input-grid textarea"));
+    assert.deepEqual(inputs.map(input => JSON.parse(input.value).value), [0, 1, 3, 4]);
+    assert.equal(add.disabled, false);
+    assert.equal(document.querySelectorAll(".diff-comparison").length, 0, "removal should invalidate results");
+    button("比较")?.click();
+    await nextTick();
+    inputs[3].value = "{bad";
+    inputs[3].dispatchEvent(new Event("input"));
+    button("比较")?.click();
+    await nextTick();
+    assert.equal(document.querySelectorAll(".diff-comparison").length, 0);
+    assert.match(document.body.textContent || "", /请先修正/);
+  });
+
+  test("added inputs support history, formatting and copying and reject empty comparisons", async () => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    const entry = recordJsonHistory({ text: '{"value":9}', indent: 0 }, 100)[0];
+    const writer = vi.fn(async (_text: string) => undefined);
+    setClipboardWriter(writer);
+    window.location.hash = "#json-diff";
+    mountApplication();
+    await nextTick();
+    const button = (text: string) => Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(item => item.textContent?.trim() === text);
+    button("填入示例")?.click();
+    await nextTick();
+    const add = button("添加 JSON");
+    assert.ok(add);
+    add.click();
+    await nextTick();
+    button("比较")?.click();
+    await nextTick();
+    assert.match(document.body.textContent || "", /请先修正/);
+    const card = document.querySelectorAll(".diff-input-grid .editor-card")[2];
+    const select = card.querySelector<HTMLSelectElement>("select")!;
+    select.value = entry.id;
+    select.dispatchEvent(new Event("change"));
+    await nextTick();
+    const format = Array.from(card.querySelectorAll<HTMLButtonElement>("button")).find(item => item.textContent === "格式化")!;
+    format.click();
+    await nextTick();
+    card.querySelector<HTMLButtonElement>('[aria-label="复制 JSON 3"]')!.click();
+    await nextTick();
+    assert.equal(writer.mock.calls[0][0], '{\n  "value": 9\n}');
+    button("比较")?.click();
+    await nextTick();
+    assert.equal(document.querySelectorAll(".diff-comparison").length, 2);
+    button("复制结果")?.click();
+    await nextTick();
+    assert.match(writer.mock.calls[1][0], /JSON 1 ↔ JSON 3/);
+  });
+
   test("uses formatter expansion for escaped JSON strings", () => {
     const raw = JSON.stringify({
       params: '{"site_info":{"version":1},"data_center":["cmc_hc"]}',

@@ -80,14 +80,20 @@ export const messages = {
       jsonDiff: {
         badge: "Semantic Diff",
         title: "JSON Diff",
-        description: "比较两个 JSON 值，按字段路径输出新增、删除和变更。",
+        description: "最多比较 5 个 JSON，以 JSON 1 为基准，按字段路径输出新增、删除和变更。",
         fillSample: "填入示例",
         compare: "比较",
+        addInput: "添加 JSON",
+        removeInput: "移除 JSON {number}",
+        baseline: "基准",
+        copyInput: "复制 JSON {number}",
+        selectHistory: "从历史选择 JSON {number}",
+        formattedInput: "JSON {number} · 格式化",
         inputAria: "JSON 输入",
         leftJson: "左侧 JSON",
         rightJson: "右侧 JSON",
         format: "格式化",
-        initialResult: "粘贴两段 JSON 后点击比较。",
+        initialResult: "粘贴 2–5 段 JSON 后点击比较，其他列分别与 JSON 1 对比。",
         noFieldDiff: "两个 JSON 没有字段级差异。",
         fixJsonErrors: "请先修正输入中的 JSON 错误。",
         copied: "已复制差异",
@@ -102,7 +108,13 @@ export const messages = {
         removed: "删除 {count}",
         changed: "变更 {count}",
         leftFormatted: "左侧格式化 JSON",
-        rightFormatted: "右侧格式化 JSON"
+        rightFormatted: "右侧格式化 JSON",
+        history: {
+          placeholder: "从格式化历史选择",
+          empty: "暂无格式化历史",
+          selectLeft: "从历史选择左侧 JSON",
+          selectRight: "从历史选择右侧 JSON"
+        }
       },
       jsonFormat: {
         badge: "Formatter",
@@ -113,7 +125,8 @@ export const messages = {
         panelTitle: "输入 / 输出",
         status: {
           minified: "已压缩成单行",
-          formatted: "已格式化为 {count} 空格缩进"
+          formatted: "已格式化为 {count} 空格缩进",
+          historyLoaded: "已从历史加载"
         },
         copied: "已复制结果",
         indent: "缩进",
@@ -139,6 +152,12 @@ export const messages = {
           expandAll: "全部展开",
           collapsePath: "折叠 {path}",
           expandPath: "展开 {path}"
+        },
+        history: {
+          title: "格式化历史",
+          empty: "暂无成功格式化的 JSON",
+          clear: "清空",
+          load: "加载 {time} 的格式化历史"
         }
       },
       timestamp: {
@@ -311,14 +330,20 @@ export const messages = {
       jsonDiff: {
         badge: "Semantic Diff",
         title: "JSON Diff",
-        description: "Compare two JSON values and list added, removed, and changed fields by path.",
+        description: "Compare up to 5 JSON values against JSON 1, with added, removed, and changed fields by path.",
         fillSample: "Fill sample",
         compare: "Compare",
+        addInput: "Add JSON",
+        removeInput: "Remove JSON {number}",
+        baseline: "Baseline",
+        copyInput: "Copy JSON {number}",
+        selectHistory: "Choose JSON {number} from history",
+        formattedInput: "JSON {number} · Formatted",
         inputAria: "JSON input",
         leftJson: "Left JSON",
         rightJson: "Right JSON",
         format: "Format",
-        initialResult: "Paste two JSON values, then compare.",
+        initialResult: "Paste 2–5 JSON values to compare each against JSON 1.",
         noFieldDiff: "No field-level differences found.",
         fixJsonErrors: "Fix JSON errors before comparing.",
         copied: "Diff copied",
@@ -333,7 +358,13 @@ export const messages = {
         removed: "{count} removed",
         changed: "{count} changed",
         leftFormatted: "Formatted left JSON",
-        rightFormatted: "Formatted right JSON"
+        rightFormatted: "Formatted right JSON",
+        history: {
+          placeholder: "Choose formatted history",
+          empty: "No formatted history",
+          selectLeft: "Choose left JSON from history",
+          selectRight: "Choose right JSON from history"
+        }
       },
       jsonFormat: {
         badge: "Formatter",
@@ -344,7 +375,8 @@ export const messages = {
         panelTitle: "Input / Output",
         status: {
           minified: "Minified to one line",
-          formatted: "Formatted with {count}-space indentation"
+          formatted: "Formatted with {count}-space indentation",
+          historyLoaded: "Loaded from history"
         },
         copied: "Result copied",
         indent: "Indentation",
@@ -370,6 +402,12 @@ export const messages = {
           expandAll: "Expand all",
           collapsePath: "Collapse {path}",
           expandPath: "Expand {path}"
+        },
+        history: {
+          title: "Formatting history",
+          empty: "No successfully formatted JSON yet",
+          clear: "Clear",
+          load: "Load formatting history from {time}"
         }
       },
       timestamp: {

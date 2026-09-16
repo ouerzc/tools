@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { Braces, ChevronsDownUp, ChevronsUpDown, Clipboard, FileText, ListTree, Minimize2, WandSparkles } from "@lucide/vue";
+import { Braces, ChevronsDownUp, ChevronsUpDown, Clipboard, FileText, ListTree, Minimize2, Trash2, WandSparkles } from "@lucide/vue";
 
 import AppButton from "@/components/ui/AppButton.vue";
 import Badge from "@/components/ui/Badge.vue";
@@ -9,6 +9,7 @@ import JsonTreeNode from "@/components/tools/JsonTreeNode.vue";
 import SurfaceCard from "@/components/ui/SurfaceCard.vue";
 import { useToast } from "@/composables/useToast";
 import type { Locale } from "@/i18n";
+import { clearJsonHistory, loadJsonHistory, recordJsonHistory, type JsonHistoryEntry } from "@/lib/json-history";
 import { formatJson, type JsonIndent } from "@/lib/json-format";
 import { buildJsonTree, type JsonTreeNode as JsonTreeModelNode } from "@/lib/json-tree";
 import { copyText } from "@/lib/utils";
@@ -29,6 +30,8 @@ const status = ref<StatusState>({ key: "common.waiting", error: false });
 const viewMode = ref<"text" | "preview">("text");
 const tree = ref<JsonTreeModelNode | null>(null);
 const collapsedPaths = ref<Set<string>>(new Set());
+const history = ref<JsonHistoryEntry[]>(loadJsonHistory());
+const selectedHistoryId = ref("");
 const showToast = useToast();
 
 const currentLocale = computed(() => locale.value as Locale);
@@ -54,6 +57,8 @@ function clearTree() {
 }
 
 function parseOnly() {
+  selectedHistoryId.value = "";
+
   if (!input.value.trim()) {
     setStatus("common.waiting");
     clearTree();
@@ -71,7 +76,7 @@ function parseOnly() {
   clearTree();
 }
 
-function formatWith(nextIndent: JsonIndent, nextView: "text" | "preview" = "preview") {
+function formatWith(nextIndent: JsonIndent, nextView: "text" | "preview" = "preview", remember = true) {
   if (!input.value.trim()) {
     setStatus("common.waiting");
     clearTree();
@@ -90,11 +95,15 @@ function formatWith(nextIndent: JsonIndent, nextView: "text" | "preview" = "prev
   setTree(result.value);
   viewMode.value = nextView;
   setStatus(result.indent === 0 ? "tools.jsonFormat.status.minified" : "tools.jsonFormat.status.formatted", false, { count: result.indent });
+  if (remember) {
+    history.value = recordJsonHistory({ text: result.text, indent: result.indent });
+    selectedHistoryId.value = history.value[0]?.id || "";
+  }
 }
 
 function fillSample() {
   input.value = sampleJson;
-  formatWith(2);
+  formatWith(2, "preview", false);
 }
 
 async function copyResult() {
@@ -127,6 +136,37 @@ function collapseAll() {
 
 function expandAll() {
   collapsedPaths.value = new Set();
+}
+
+function historyPreview(entry: JsonHistoryEntry) {
+  const compact = entry.text.replace(/\s+/g, " ").trim();
+  return compact.length > 72 ? `${compact.slice(0, 72)}…` : compact;
+}
+
+function formatHistoryTime(entry: JsonHistoryEntry) {
+  return new Intl.DateTimeFormat(currentLocale.value, { dateStyle: "short", timeStyle: "medium" }).format(entry.formattedAt);
+}
+
+function selectHistory(entry: JsonHistoryEntry) {
+  input.value = entry.text;
+  indent.value = entry.indent;
+  selectedHistoryId.value = entry.id;
+
+  const result = formatJson(entry.text, entry.indent, currentLocale.value);
+  if (!result.ok) {
+    status.value = { key: result.error, error: true };
+    clearTree();
+    return;
+  }
+
+  setTree(result.value);
+  setStatus("tools.jsonFormat.status.historyLoaded");
+}
+
+function clearHistory() {
+  clearJsonHistory();
+  history.value = [];
+  selectedHistoryId.value = "";
 }
 </script>
 
@@ -201,7 +241,7 @@ function expandAll() {
         <SurfaceCard tone="subtle" class="control-card">
           <div class="control-row">
             <label for="indent">{{ t("tools.jsonFormat.indent") }}</label>
-            <select id="indent" v-model="indent">
+            <select id="indent" v-model="indent" @change="selectedHistoryId = ''">
               <option :value="2">{{ t("tools.jsonFormat.twoSpaces") }}</option>
               <option :value="4">{{ t("tools.jsonFormat.fourSpaces") }}</option>
               <option :value="0">{{ t("tools.jsonFormat.minifyOption") }}</option>
@@ -216,6 +256,38 @@ function expandAll() {
               <Clipboard :size="16" aria-hidden="true" />
               {{ t("tools.jsonFormat.copyResult") }}
             </AppButton>
+          </div>
+        </SurfaceCard>
+
+        <SurfaceCard tone="subtle" class="json-history-card">
+          <div class="small-card-head">
+            <h2>{{ t("tools.jsonFormat.history.title") }}</h2>
+            <span class="count">{{ history.length }} / 10</span>
+            <button
+              class="inline-action json-history-clear"
+              type="button"
+              :disabled="!history.length"
+              @click="clearHistory"
+            >
+              <Trash2 :size="13" aria-hidden="true" />
+              {{ t("tools.jsonFormat.history.clear") }}
+            </button>
+          </div>
+          <div class="json-history-list">
+            <p v-if="!history.length" class="history-empty">{{ t("tools.jsonFormat.history.empty") }}</p>
+            <button
+              v-for="entry in history"
+              :key="entry.id"
+              class="json-history-item"
+              :class="{ active: selectedHistoryId === entry.id }"
+              type="button"
+              :title="entry.text"
+              :aria-label="t('tools.jsonFormat.history.load', { time: formatHistoryTime(entry) })"
+              @click="selectHistory(entry)"
+            >
+              <span class="json-history-preview">{{ historyPreview(entry) }}</span>
+              <span class="json-history-time">{{ formatHistoryTime(entry) }}</span>
+            </button>
           </div>
         </SurfaceCard>
 
