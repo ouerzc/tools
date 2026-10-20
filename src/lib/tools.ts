@@ -1,4 +1,4 @@
-export type ToolId = "json-diff" | "json-format" | "timestamp";
+export type ToolId = "json-diff" | "json-format" | "timestamp" | "text-diff";
 
 export interface ToolDefinition {
   id: ToolId;
@@ -25,6 +25,16 @@ export interface ToolMeta {
 export type Translate = (key: string, values?: Record<string, string | number>) => string;
 
 export const tools: ToolDefinition[] = [
+  {
+    id: "text-diff",
+    titleKey: "toolMeta.textDiff.title",
+    descriptionKey: "toolMeta.textDiff.description",
+    longDescriptionKey: "toolMeta.textDiff.longDescription",
+    kindKey: "toolMeta.textDiff.kind",
+    keywordsKey: "toolMeta.textDiff.keywords",
+    shortcut: "X",
+    tags: ["Text", "Diff", "Proto", "SQL"]
+  },
   {
     id: "json-diff",
     titleKey: "toolMeta.jsonDiff.title",

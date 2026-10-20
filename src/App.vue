@@ -21,6 +21,7 @@ import {
 import ToastViewport from "@/components/ToastViewport.vue";
 import JsonDiffTool from "@/components/tools/JsonDiffTool.vue";
 import JsonFormatterTool from "@/components/tools/JsonFormatterTool.vue";
+import TextDiffTool from "@/components/tools/TextDiffTool.vue";
 import TimestampTool from "@/components/tools/TimestampTool.vue";
 import AppButton from "@/components/ui/AppButton.vue";
 import SurfaceCard from "@/components/ui/SurfaceCard.vue";
@@ -30,12 +31,14 @@ import { getLocalizedToolById, getLocalizedTools, isToolId, tools, type ToolId, 
 import { copyText } from "@/lib/utils";
 
 const componentMap: Record<ToolId, Component> = {
+  "text-diff": TextDiffTool,
   "json-diff": JsonDiffTool,
   "json-format": JsonFormatterTool,
   timestamp: TimestampTool
 };
 
 const iconMap: Record<ToolId, Component> = {
+  "text-diff": GitCompareArrows,
   "json-diff": GitCompareArrows,
   "json-format": Braces,
   timestamp: Clock3

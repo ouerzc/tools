@@ -47,6 +47,13 @@ export const messages = {
       footer: "DevKit Hub"
     },
     toolMeta: {
+      textDiff: {
+        title: "文本 Diff",
+        description: "比较两段文本的变化。",
+        longDescription: "左右对比 Proto、SQL 或普通文本，高亮行和行内变化，支持忽略空白与差异跳转。",
+        kind: "compare",
+        keywords: "文本 text diff 差异 对比 Proto protobuf SQL 代码 空白"
+      },
       jsonDiff: {
         title: "JSON Diff",
         description: "比较字段变更。",
@@ -77,6 +84,23 @@ export const messages = {
       copy: "复制"
     },
     tools: {
+      textDiff: {
+        title: "文本 Diff",
+        description: "粘贴旧版和新版文本，按行及行内高亮变化。所有对比都在浏览器内完成。",
+        inputAria: "文本对比输入",
+        left: "旧版文本",
+        right: "新版文本",
+        placeholder: "粘贴 Proto、SQL、JSON 或普通文本…",
+        ignoreWhitespace: "忽略行内空白（含缩进与不间断空格）",
+        collapse: "折叠未变化内容",
+        previous: "上一处",
+        next: "下一处",
+        initial: "粘贴两段文本后点击比较；支持空文本。换行符统一比较，末尾换行变化会显示。",
+        identical: "在当前比较设置下没有差异。",
+        summary: "共 {groups} 处差异：新增 {added} 行，删除 {removed} 行，修改 {changed} 行。",
+        hidden: "展开 {count} 行未变化内容",
+        tooLarge: "文本过大：每侧最多支持 2,000 行、200,000 个字符，请分段比较。"
+      },
       jsonDiff: {
         badge: "Semantic Diff",
         title: "JSON Diff",
@@ -297,6 +321,13 @@ export const messages = {
       footer: "DevKit Hub"
     },
     toolMeta: {
+      textDiff: {
+        title: "Text Diff",
+        description: "Compare two text snippets.",
+        longDescription: "Compare Proto, SQL, or plain text side by side with inline highlights, whitespace options, and change navigation.",
+        kind: "compare",
+        keywords: "text diff compare difference Proto protobuf SQL code whitespace"
+      },
       jsonDiff: {
         title: "JSON Diff",
         description: "Compare field changes.",
@@ -327,6 +358,23 @@ export const messages = {
       copy: "Copy"
     },
     tools: {
+      textDiff: {
+        title: "Text Diff",
+        description: "Paste old and new text to highlight line and inline changes. Comparisons run entirely in your browser.",
+        inputAria: "Text comparison inputs",
+        left: "Old text",
+        right: "New text",
+        placeholder: "Paste Proto, SQL, JSON, or plain text…",
+        ignoreWhitespace: "Ignore whitespace within lines (including indentation and non-breaking spaces)",
+        collapse: "Collapse unchanged content",
+        previous: "Previous",
+        next: "Next",
+        initial: "Paste two snippets and compare; empty text is supported. Line endings are normalized; final newline changes are shown.",
+        identical: "No differences with the current comparison settings.",
+        summary: "{groups} change groups: {added} added, {removed} removed, {changed} modified lines.",
+        hidden: "Expand {count} unchanged lines",
+        tooLarge: "Text is too large: each side supports up to 2,000 lines and 200,000 characters. Compare smaller sections."
+      },
       jsonDiff: {
         badge: "Semantic Diff",
         title: "JSON Diff",

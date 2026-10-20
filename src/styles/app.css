@@ -2243,3 +2243,108 @@ textarea:focus,
   margin: 0 0 8px;
   font-size: 15px;
 }
+
+.text-diff-options,
+.text-diff-options label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.text-diff-options {
+  gap: 12px 24px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+.text-diff-summary {
+  padding: 14px 16px;
+  color: var(--code-fg);
+  font-size: 13px;
+}
+
+.text-diff-position {
+  color: var(--code-muted);
+  white-space: nowrap;
+  font: 12px var(--font-mono);
+}
+
+.text-diff-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 16px 16px;
+  min-width: 0;
+}
+
+.text-diff-pane {
+  position: relative;
+  height: 440px;
+  overflow: auto;
+  border: 1px solid var(--code-border);
+  border-radius: var(--radius-md);
+  background: var(--code-bg-2);
+  color: var(--code-fg);
+  scrollbar-gutter: stable;
+}
+
+.text-diff-row {
+  display: grid;
+  grid-template-columns: 42px 18px 1fr;
+  width: max-content;
+  min-width: 100%;
+  height: 22px;
+  font: 12px/22px var(--font-mono);
+  tab-size: 2;
+}
+
+.text-diff-sign {
+  text-align: center;
+  user-select: none;
+}
+
+.text-diff-row.added {
+  background: rgba(47, 125, 74, 0.25);
+  color: #9de0b1;
+}
+
+.text-diff-row.removed {
+  background: rgba(163, 58, 48, 0.25);
+  color: #eba19a;
+}
+
+.text-diff-row.added .text-diff-mark {
+  background: rgba(47, 160, 74, 0.4);
+}
+
+.text-diff-row.removed .text-diff-mark {
+  background: rgba(200, 58, 48, 0.4);
+}
+
+.text-diff-row.text-diff-active {
+  box-shadow: inset 3px 0 #e7c888;
+}
+
+.text-diff-fold {
+  display: block;
+  width: 100%;
+  height: 22px;
+  border: 0;
+  background: var(--code-row-bg);
+  color: var(--code-muted);
+  font: 12px/22px var(--font-mono);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .text-diff-grid {
+    gap: 6px;
+    padding-inline: 6px;
+  }
+
+  .text-diff-row {
+    grid-template-columns: 30px 14px 1fr;
+  }
+}

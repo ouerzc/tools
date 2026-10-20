@@ -128,7 +128,7 @@ describe("project structure", () => {
   });
 
   test("tool registry keeps stable legacy ids", () => {
-    assert.deepEqual(tools.map(tool => tool.id), ["json-diff", "json-format", "timestamp"]);
+    assert.deepEqual(tools.map(tool => tool.id), ["text-diff", "json-diff", "json-format", "timestamp"]);
   });
 });
 

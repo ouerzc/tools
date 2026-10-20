@@ -6,6 +6,7 @@ DevKit Hub is a local-first developer toolkit built with Vue 3 and Vite. Tool lo
 
 ## 工具
 
+- **Text Diff**：左右比较两段文本，高亮行及行内变化，支持忽略空白、差异跳转和折叠未变化内容。入口 `#text-diff`，快捷键 `X`；每侧上限为 2,000 行和 200,000 个字符。
 - JSON Diff：按稳定字段路径比较新增、删除和变更。
 - JSON 格式化：格式化、压缩 JSON，并暴露非法输入状态。
 - 时间戳转换：Unix 秒/毫秒、日期时间和常用时区互转。
